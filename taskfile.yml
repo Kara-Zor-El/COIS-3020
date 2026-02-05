@@ -1,0 +1,15 @@
+version: '3'
+
+tasks:
+  default:
+    desc: Builds and runs
+    cmds:
+      - dotnet build A1
+      - dotnet run --project A1
+  format:
+   desc: Formats the application
+   cmd: dotnet format A1
+  release:
+    desc: Builds and runs the application in release mode
+    cmds:
+      - dotnet build A1 --configuration Release
