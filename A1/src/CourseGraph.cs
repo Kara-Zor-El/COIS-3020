@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace CourseGraph {
@@ -21,17 +22,18 @@ namespace CourseGraph {
 
   }
 
-  //---------------------------------------------------------------------------------------------
-
   public class CourseVertex {
     public Course Value { get; set; }
     public bool Visited { get; set; }
     public List<CourseEdge> Edges { get; set; }     // List of adjacency vertices
+    /// <summary>Minimum term this course can be taken in (at most N courses per term).</summary>
+    public int TMin { get; set; }
 
     public CourseVertex(Course value) {
       this.Value = value;
       this.Visited = false;
       this.Edges = new List<CourseEdge>();
+      this.TMin = 0;
     }
 
 
@@ -49,8 +51,6 @@ namespace CourseGraph {
     }
   }
 
-  //---------------------------------------------------------------------------------------------
-
   public interface IDirectedGraph<T, U> {
     void AddVertex(T name);
     void RemoveVertex(T name);
@@ -58,13 +58,16 @@ namespace CourseGraph {
     void RemoveEdge(T name1, T name2);
   }
 
-  //---------------------------------------------------------------------------------------------
-
   public class CourseGraph : IDirectedGraph<Course, CourseRelation> {
-    private List<CourseVertex> Vertices;
+    public List<CourseVertex> Vertices { get; private set; }
+    public int TGlobalMax { get; private set; }
+    public int NPerTerm { get; private set; }
 
-    public CourseGraph() {
+    public CourseGraph(int nPerTerm) {
       this.Vertices = new List<CourseVertex>();
+      this.TGlobalMax = 0;
+      if (nPerTerm <= 0) throw new ArgumentException("N must be greater than 0");
+      this.NPerTerm = nPerTerm;
     }
 
     /// <summary>
@@ -101,10 +104,12 @@ namespace CourseGraph {
           this.AddEdge(course, preRequisite, CourseRelation.Prereq);
         }
       }
+      RecomputeTermBounds();
     }
+
     /// <summary>
     /// Removes the given vertex and all incident edges from the graph
-    /// Note:  Nothing is done if the vertex does not exist
+    /// Note: Nothing is done if the vertex does not exist
     /// Time complexity: O(max(n,m)) where m is the number of edges 
     /// </summary>
     /// <param name="course">The courser we want to remove</param>
@@ -119,7 +124,6 @@ namespace CourseGraph {
             if (edge.AdjVertex?.Value?.Equals(course) ?? false) { // Incident edge
               // Vertex is the node this edge points to?
               vertex.Edges.Remove(edge);
-              // TODO: Test this patching
               // Patch the relations
               foreach (var coRequisite in course.CoRequisites) {
                 this.AddEdge(vertex.Value, coRequisite, CourseRelation.Coreq);
@@ -132,11 +136,34 @@ namespace CourseGraph {
           }
         }
         this.Vertices.RemoveAt(i);
+        RecomputeTermBounds();
       }
     }
 
-    private bool IsCylic(Course course1) {
-      // TODO: Implement this check (I think we use breadth first or dfs)
+    /// <summary>
+    /// Returns true if the graph contains a directed cycle (DFS with recursion stack).
+    /// Time complexity: O(n + m)
+    /// </summary>
+    private bool IsCyclic(Course course1, HashSet<CourseVertex> visited = null) {
+      if (visited == null) visited = new HashSet<CourseVertex>();
+
+      // Does the course exist?
+      int course1Index = this.FindVertexIndex(course1);
+      if (course1Index <= -1) return false;
+
+      var course1Vertex = this.Vertices[course1Index];
+
+      // Has this course been visited?
+      if (visited.Contains(course1Vertex)) return true;
+
+      // Add the course to the visited set
+      visited.Add(course1Vertex);
+
+      // Check the edges of the course
+      foreach (var edge in course1Vertex.Edges) {
+        if (this.IsCyclic(edge.AdjVertex.Value, visited)) return true;
+      }
+      visited.Remove(course1Vertex);
       return false;
     }
 
@@ -158,8 +185,8 @@ namespace CourseGraph {
           this.Vertices[course1Index].Edges.Add(courseEdge);
         }
       }
-
-      if (this.IsCylic(course1)) throw new ArgumentException("CourseGraph cannot contain cylic relations.");
+      RecomputeTermBounds();
+      if (this.IsCyclic(course1)) throw new ArgumentException("CourseGraph cannot contain cyclic relations.");
     }
 
     /// <summary>
@@ -174,9 +201,110 @@ namespace CourseGraph {
       int course2Index = course1Vertex.FindEdgeIndex(course2);
       if (course2Index <= -1) return;
       course1Vertex.Edges.RemoveAt(course2Index);
-
+      RecomputeTermBounds();
     }
 
+    /// <summary>
+    /// Recomputes t_min (per vertex) and t_global_max using Kahn's algorithm
+    /// See: https://www.geeksforgeeks.org/dsa/topological-sorting-indegree-based-solution/ for algorithm details
+    /// Time complexity: O(n+m)
+    /// </summary>
+    private void RecomputeTermBounds() {
+      // Handle empty graph
+      if (this.Vertices.Count == 0) {
+        this.TGlobalMax = 0;
+        return;
+      }
+
+      // Reset global maximum
+      this.TGlobalMax = 0;
+
+      // Build reverse prereq map (maps each course to all courses that depend on it)
+      var revPrereq = new Dictionary<CourseVertex, List<CourseVertex>>();
+      foreach (var v in this.Vertices) {
+        revPrereq[v] = new List<CourseVertex>();
+      }
+
+      foreach (var w in this.Vertices) {
+        foreach (var e in w.Edges.Where(e => e.Relation == CourseRelation.Prereq)) {
+          revPrereq[e.AdjVertex].Add(w);
+        }
+      }
+
+      // Build in-degree map (count of prereq dependencies for each course)
+      var inDegree = new Dictionary<CourseVertex, int>();
+      foreach (var v in this.Vertices) {
+        inDegree[v] = v.Edges.Count(e => e.Relation == CourseRelation.Prereq);
+      }
+
+      // Kahn's algorithm (builds a topological ordering)
+      var order = new List<CourseVertex>();
+      var kahnQ = new Queue<CourseVertex>();
+
+      // Start with all vertices with no prereq dependencies
+      foreach (var v in this.Vertices.Where(v => inDegree[v] == 0)) {
+        kahnQ.Enqueue(v);
+      }
+
+      // Proces them in order
+      while (kahnQ.Count > 0) {
+        var v = kahnQ.Dequeue();
+        order.Add(v);
+
+        // For each course that depend on this one
+        foreach (var w in revPrereq[v]) {
+          inDegree[w]--;
+          if (inDegree[w] == 0) {
+            kahnQ.Enqueue(w);
+          }
+        }
+      }
+
+      // Verify that the sorting suceeded (if it has a cycle, the topological order will not equal the number of vertices)
+      if (order.Count != this.Vertices.Count) {
+        throw new InvalidOperationException("CourseGraph contains a cycle");
+      }
+
+      // Compute term assignments assuming 1 course per term for _tGlobalMax
+      var termCapacityOne = new Dictionary<CourseVertex, int>();
+      foreach (var v in order) {
+        // Phantom courses don't occuy term space
+        if (v.Value.IsPhantom) {
+          termCapacityOne[v] = 0;
+          continue;
+        }
+
+        // Start at term 1
+        int earliestTerm = 1;
+
+        // Must come after all prerequisites
+        foreach (var e in v.Edges.Where(e => e.Relation == CourseRelation.Prereq)) {
+          termCapacityOne.TryGetValue(e.AdjVertex, out int prereqTerm);
+          if (prereqTerm > 0) {
+            earliestTerm = Math.Max(earliestTerm, prereqTerm + 1);
+          }
+        }
+
+        // Coreqs can be taken in the same term or earlier 
+        // so they just need to be scheduled by this term at the latest
+        foreach (var e in v.Edges.Where(e => e.Relation == CourseRelation.Coreq)) {
+          termCapacityOne.TryGetValue(e.AdjVertex, out int coreqTerm);
+          if (coreqTerm > 0) {
+            earliestTerm = Math.Max(earliestTerm, coreqTerm);
+          }
+        }
+
+        // Assign the earliest term
+        termCapacityOne[v] = earliestTerm;
+        this.TGlobalMax = Math.Max(this.TGlobalMax, earliestTerm);
+      }
+
+      if (this.NPerTerm <= 0) return;
+
+      foreach (var v in order.Where(v => !v.Value.IsPhantom)) {
+        v.TMin = termCapacityOne[v];
+      }
+    }
 
     /// <summary>
     /// Depth-First Search
@@ -201,8 +329,9 @@ namespace CourseGraph {
 
       foreach (var edge in vertex.Edges) { // Visit next adjacent vertex
         var adjacentVertex = edge.AdjVertex;  // Find adjacent vertex in edge
-        if (!adjacentVertex.Visited)
+        if (!adjacentVertex.Visited) {
           this.DepthFirstSearch(adjacentVertex);
+        }
       }
     }
 
@@ -252,7 +381,7 @@ namespace CourseGraph {
       // TODO: Test this fully
       bool foundLink = false;
       int degreeIndex = this.FindVertexIndex(degree);
-      if (degreeIndex > 0) {
+      if (degreeIndex >= 0) {
         var degreeVertex = this.Vertices[degreeIndex];
         foreach (var edge in degreeVertex.Edges) {
           if (edge.AdjVertex?.Value?.Equals(course) ?? false) { // Incident edge
@@ -270,6 +399,7 @@ namespace CourseGraph {
           degree.PreRequisites.Add(course);
         this.AddEdge(degree, course, CourseRelation.Prereq);
       }
+      RecomputeTermBounds();
     }
 
     /// <summary>

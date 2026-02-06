@@ -1,7 +1,8 @@
 using CourseGraph;
 using System.Collections.Generic;
+using System;
 
-CourseGraph.CourseGraph graph = new CourseGraph.CourseGraph();
+CourseGraph.CourseGraph graph = new CourseGraph.CourseGraph(nPerTerm: 5);
 
 // add phantom root node for the degree
 Course degree = new Course(0, "Computer Science", new List<Course>(), new List<Course>(), true);
@@ -72,7 +73,7 @@ graph.AddVertex(cois4450);
 graph.AddVertex(cois4550);
 
 // Random courses
-Course scifi = new Course(1000, "SCIFI-1000H: Science Fiction", new List<Course>(), new List<Course>());
+Course scifi = new Course(1000, "SCIFI-1000H: Science Fiction", new List<Course>(), new List<Course>(), true);
 Course scifi2 = new Course(1001, "SCIFI-1001H: Science Fiction 2", new List<Course>(), new List<Course> { scifi });
 Course scifi3 = new Course(1002, "SCIFI-1002H: Science Fiction 3", new List<Course>(), new List<Course> { scifi2 });
 graph.AddVertex(scifi);
@@ -94,5 +95,12 @@ Course unrelated3 = new Course(1009, "UNRELATED-1005H: Unrelated 3", new List<Co
 graph.AddVertex(unrelated);
 graph.AddVertex(unrelated2);
 graph.AddVertex(unrelated3);
+
+// print out the t_min
+foreach (var vertex in graph.Vertices) {
+  Console.WriteLine(vertex.Value.Name + " - " + vertex.TMin);
+}
+// print out the t_global_max
+Console.WriteLine("t_global_max: " + graph.TGlobalMax);
 
 graph.WriteToFile("coursegraph.md");
