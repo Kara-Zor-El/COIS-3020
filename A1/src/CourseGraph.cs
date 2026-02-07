@@ -5,24 +5,96 @@ using System.Linq;
 using System.Text;
 
 namespace CourseGraph {
+  /// <summary>
+  /// Represents a data bundle of course information.
+  /// 
+  /// This is just a convenience thing so we can load and store all information in a json file.
+  /// </summary>
+  public record CourseData {
+    /// <summary>
+    /// Any courses that are listed as degree's
+    /// </summary>
+    public List<Course> Degrees { get; init; }
+    /// <summary>
+    /// All course relations.
+    /// </summary>
+    public List<Course> Courses { get; init; }
 
+    // Helpers
+
+    /// <summary>
+    /// Gets a degree by name from the course data.
+    /// Time complexity: O(n)
+    /// </summary>
+    /// <param name="name">The degree name</param>
+    /// <returns>The degree if it exists, otherwise null</returns>
+#nullable enable
+    public Course? GetDegreeByName(string name) {
+      return this.Degrees.FirstOrDefault(c => c.Name == name);
+    }
+
+    /// <summary>
+    /// Gets a course by name from the course data.
+    /// Time complexity: O(n)
+    /// </summary>
+    /// <param name="name">The course name</param>
+    /// <returns>The course if it exists, otherwise null</returns>
+#nullable enable
+    public Course? GetCourseByName(string name) {
+      return this.Courses.FirstOrDefault(c => c.Name == name);
+    }
+  }
+
+  /// <summary>
+  /// Represents the relation between two courses in the graph.
+  /// </summary>
   public enum CourseRelation {
+    /// <summary>
+    /// Indicates that the adjacent vertex is a prerequisite of the vertex.
+    /// </summary>
     Prereq,
+    /// <summary>
+    /// Indicates that the adjacent vertex is a corequisite of the vertex.
+    /// Corequisites can be taken at the same time as the vertex or any time before.
+    /// </summary>
     Coreq
   }
-  public class CourseEdge {
-    public CourseVertex AdjVertex { get; set; }
-    public CourseRelation Relation { get; set; }
 
+  /// <summary>
+  /// Represents an edge in the course graph.
+  /// </summary>
+  public class CourseEdge {
+    /// <summary>
+    /// The adjacent vertex this edge points to.
+    /// </summary>
+    public CourseVertex AdjVertex { get; set; }
+    /// <summary> The relation between the vertex and the adjacent vertex. </summary>
+    public CourseRelation Relation { get; set; }
+    /// <summary>
+    /// Initializes a new instance of the CourseEdge class with the specified adjacent vertex and relation.
+    /// </summary>
+    /// <param name="vertex">The adjacent vertex this edge points to.</param>
+    /// <param name="relation">The relation between the vertex and the adjacent vertex.</param>
     public CourseEdge(CourseVertex vertex, CourseRelation relation) {
       this.AdjVertex = vertex;
       this.Relation = relation;
     }
   }
-
+  /// <summary>
+  /// Represents a vertex in the course graph.
+  /// </summary>
   public class CourseVertex {
+    /// <summary>
+    /// The course this vertex represents.
+    /// </summary>
     public Course Value { get; set; }
+    /// <summary>
+    /// Marks whether this vertex has been visited during a graph traversal.
+    /// </summary>
     public bool Visited { get; set; }
+    /// <summary>
+    /// The edges of this vertex.
+    /// </summary>
     public List<CourseEdge> Edges { get; set; }     // List of adjacency vertices
 
     /// <summary>Minimum term this course can be taken in.</summary>
@@ -30,6 +102,10 @@ namespace CourseGraph {
     /// <summary>Maximum term this course can be taken in (based on the degree).</summary>
     public int TermMax { get; set; }
 
+    /// <summary>
+    /// Initializes a new instance of the CourseVertex class with the specified course value.
+    /// </summary>
+    /// <param name="value">The course value for this vertex.</param>
     public CourseVertex(Course value) {
       this.Value = value;
       this.Visited = false;
@@ -83,7 +159,6 @@ namespace CourseGraph {
     /// <summary>
     /// Adds the given vertex to the graph
     /// Note: Duplicate vertices are not added
-    /// NOTE: This also adds the prerequiste and corequsite courses.
     /// Time complexity: O(v) due to FindVertex
     /// </summary>
     /// <param name="course">The course we want to add</param>
@@ -91,16 +166,6 @@ namespace CourseGraph {
       if (this.FindVertexIndex(course) == -1) {
         CourseVertex courseVertex = new CourseVertex(course);
         this.Vertices.Add(courseVertex);
-        // Add the relations
-        foreach (var coRequisite in course.CoRequisites) {
-          this.AddVertex(coRequisite);
-          this.AddEdge(course, coRequisite, CourseRelation.Coreq);
-        }
-        foreach (var preRequisite in course.PreRequisites) {
-          this.AddVertex(preRequisite);
-          this.AddEdge(course, preRequisite, CourseRelation.Prereq);
-        }
-
       }
     }
 
@@ -116,16 +181,14 @@ namespace CourseGraph {
       // B was a pre- and co-requisite.
       int i = this.FindVertexIndex(course);
       if (i > -1) {
+        var courseVertex = this.Vertices[i];
         foreach (var vertex in this.Vertices) {
           foreach (var edge in vertex.Edges) {
             if (edge.AdjVertex?.Value?.Equals(course) ?? false) { // Incident edge
               vertex.Edges.Remove(edge);
               // Patch the relations
-              foreach (var coRequisite in course.CoRequisites) {
-                this.AddEdge(vertex.Value, coRequisite, CourseRelation.Coreq);
-              }
-              foreach (var preRequisite in course.PreRequisites) {
-                this.AddEdge(vertex.Value, preRequisite, CourseRelation.Prereq);
+              foreach (var edge2 in courseVertex.Edges) {
+                this.AddEdge(vertex.Value, edge2.AdjVertex.Value, edge2.Relation);
               }
               break;  // Since there are no duplicate edges
             }
@@ -137,7 +200,6 @@ namespace CourseGraph {
 
     /// <summary>
     /// Returns true if there is a cycle between the given vertices
-    /// TODO: Change it
     /// Time complexity: O(v + e)
     /// </summary>
     private bool IsCyclic(int fromIndex, int toIndex) {
@@ -197,78 +259,16 @@ namespace CourseGraph {
     }
 
     /// <summary>
-    /// Depth-First Search
-    /// Performs a depth-first search (with re-start)
-    /// Time complexity: O(max,(v,e))
-    /// </summary>
-    public void DepthFirstSearch() {
-      foreach (var vertex in this.Vertices) {
-        vertex.Visited = false; // Set all vertices as unvisited
-      }
-      foreach (var vertex in this.Vertices) {
-        if (vertex.Visited) continue;
-        // (Re)start with vertex i
-        this.DepthFirstSearch(vertex);
-        Console.WriteLine();
-      }
-    }
-
-    private void DepthFirstSearch(CourseVertex vertex) {
-      vertex.Visited = true;    // Output vertex when marked as visited
-      Console.WriteLine(vertex.Value);
-
-      foreach (var edge in vertex.Edges) { // Visit next adjacent vertex
-        var adjacentVertex = edge.AdjVertex;  // Find adjacent vertex in edge
-        if (!adjacentVertex.Visited) {
-          this.DepthFirstSearch(adjacentVertex);
-        }
-      }
-    }
-
-    /// <summary>
-    /// Breadth-First Search
-    /// Performs a breadth-first search (with re-start)
-    /// Time Complexity: O(max(v,e))
-    /// </summary>
-    public void BreadthFirstSearch() {
-      foreach (var vertex in this.Vertices) {
-        vertex.Visited = false; // Set all vertices as unvisited
-      }
-
-      foreach (var vertex in this.Vertices) {
-        if (vertex.Visited) continue;
-        this.BreadthFirstSearch(vertex);
-        Console.WriteLine();
-      }
-    }
-
-    private void BreadthFirstSearch(CourseVertex vertex) {
-      Queue<CourseVertex> vertexQueue = new Queue<CourseVertex>();
-      vertex.Visited = true;  // Mark vertex as visited when placed in the queue
-      vertexQueue.Enqueue(vertex);
-      while (vertexQueue.Count > 0) {
-        var currVertex = vertexQueue.Dequeue(); // Output vertex when removed from the queue
-        Console.WriteLine(currVertex.Value);
-        // Enqueue unvisited adjacent vertices
-        foreach (var edge in currVertex.Edges) {
-          var adjacentVertex = edge.AdjVertex;
-          if (adjacentVertex.Visited) continue;
-          adjacentVertex.Visited = true;  // Mark vertex as visited
-          vertexQueue.Enqueue(adjacentVertex);
-        }
-      }
-    }
-    /// <summary>
     /// Toggle's weather a given course is required by a given degree.
     /// </summary>
     /// <param name="course">The course you want to update</param>
     /// <param name="degree">The degree to toggle requirement</param>
     /// <exception cref="ArgumentException">Degree was not a phantom course.</exception>
     public void UpdateVertex(Course course, Course degree) {
+      // TODO: Test this fully
       if (!degree.IsPhantom) {
         throw new ArgumentException("A degree is expected to be a phantom course");
       }
-      // TODO: Test this fully
       bool foundLink = false;
       int degreeIndex = this.FindVertexIndex(degree);
       CourseVertex degreeVertex = this.Vertices[degreeIndex];
@@ -277,16 +277,17 @@ namespace CourseGraph {
           if (edge.AdjVertex?.Value?.Equals(course) ?? false) { // Incident edge
             // A phantom node indicates that it is a node representing a degree as such it is a root required node.
             degreeVertex.Edges.Remove(edge); // Remove the link
-            degreeVertex.Value.CoRequisites.Remove(course); // Remove the Corequisite
-            degreeVertex.Value.PreRequisites.Remove(course); // Remove the rerequisite
+            // Patch the course data
+            degreeVertex.Value.CoRequisites.Remove(course.Name);
+            degreeVertex.Value.PreRequisites.Remove(course.Name);
             foundLink = true;
             break; // Edges are de-duplicated
           }
         }
       }
       if (!foundLink) {
-        if (!degree.PreRequisites.Contains(course))
-          degree.PreRequisites.Add(course);
+        if (!degree.PreRequisites.Contains(course.Name))
+          degree.PreRequisites.Add(course.Name);
         this.AddEdge(degree, course, CourseRelation.Prereq);
       }
     }
@@ -399,6 +400,74 @@ namespace CourseGraph {
     }
 
     /// <summary>
+    /// Extract the course data from the graph.
+    /// </summary>
+    /// <returns>All degrees and courses from the graph.</returns>
+    public CourseData GetCourseData() {
+      // Collect all phantom nodes and count them as degree
+      // Collect all non-phantom nodes and count them as course
+      var degrees = new List<Course>();
+      var courses = new List<Course>();
+
+      foreach (var vertex in this.Vertices) {
+        if (vertex.Value.IsPhantom) {
+          degrees.Add(vertex.Value);
+        } else {
+          courses.Add(vertex.Value);
+        }
+      }
+
+      return new CourseData {
+        Degrees = degrees,
+        Courses = courses
+      };
+    }
+
+    /// <summary>
+    /// Constructs a CourseGraph from the given CourseData.
+    /// </summary>
+    /// <param name="data">The course data to generate a graph from.</param>
+    /// <returns>A new courseGraph</returns>
+    /// <exception cref="ArgumentException">If the data entry is invalid</exception>
+    public static CourseGraph FromCourseData(CourseData data) {
+      var courseGraph = new CourseGraph();
+      // Add all degrees as vertices
+      foreach (var degree in data.Degrees) {
+        courseGraph.AddVertex(degree);
+      }
+      // Add all courses as vertices
+      foreach (var course in data.Courses) {
+        courseGraph.AddVertex(course);
+      }
+
+      // Add edges for degree requirements
+      foreach (var degree in data.Degrees) {
+        if (degree.CoRequisites.Count > 0) throw new ArgumentException("Invalid Data Entry");
+        foreach (var prereq in degree.PreRequisites) {
+          var course = data.GetCourseByName(prereq);
+          if (course == null) throw new ArgumentException("Invalid Data Entry");
+          courseGraph.AddEdge(degree, course, CourseRelation.Prereq);
+        }
+      }
+
+      // Add edges for course requirements
+      foreach (var course in data.Courses) {
+        foreach (var coreqName in course.CoRequisites) {
+          var coreq = data.GetCourseByName(coreqName);
+          if (coreq == null) throw new ArgumentException("Invalid Data Entry");
+          courseGraph.AddEdge(course, coreq, CourseRelation.Coreq);
+        }
+        foreach (var prereqName in course.PreRequisites) {
+          var prereq = data.GetCourseByName(prereqName);
+          if (prereq == null) throw new ArgumentException("Invalid Data Entry");
+          courseGraph.AddEdge(course, prereq, CourseRelation.Prereq);
+        }
+      }
+
+      return courseGraph;
+    }
+
+    /// <summary>
     /// Prints out all vertices of a graph
     /// Time complexity: O(v)
     /// </summary>
@@ -431,14 +500,14 @@ namespace CourseGraph {
       sb.AppendLine("flowchart TB");
 
       foreach (var vertex in this.Vertices) {
-        string id = "n" + vertex.Value.ID;
+        string id = "n" + vertex.Value.Name;
         sb.AppendLine($"  {id}[\"{vertex.Value.Name}\"]");
       }
 
       foreach (var vertex in this.Vertices) {
-        string fromId = "n" + vertex.Value.ID;
+        string fromId = "n" + vertex.Value.Name;
         foreach (var edge in vertex.Edges) {
-          string toId = "n" + edge.AdjVertex.Value.ID;
+          string toId = "n" + edge.AdjVertex.Value.Name;
           if (edge.Relation == CourseRelation.Prereq)
             sb.AppendLine($"  {fromId} -->|Prereq| {toId}");
           else
@@ -448,8 +517,8 @@ namespace CourseGraph {
 
       foreach (var vertex in this.Vertices) {
         if (vertex.Value.IsPhantom) {
-          sb.AppendLine($"  style n{vertex.Value.ID} stroke:#000,stroke-width:4px");
-          sb.AppendLine($"  style n{vertex.Value.ID} stroke-dasharray: 10,5");
+          sb.AppendLine($"  style n{vertex.Value.Name} stroke:#000,stroke-width:4px");
+          sb.AppendLine($"  style n{vertex.Value.Name} stroke-dasharray: 10,5");
         }
       }
       return sb.ToString();
