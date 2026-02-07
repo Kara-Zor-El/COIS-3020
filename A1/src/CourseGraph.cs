@@ -298,6 +298,10 @@ namespace CourseGraph {
     /// <param name="termSize">Number of courses per term</param>
     /// <param name="creditCount">Total number of credits required</param>
     /// <param name="degreeCourse">The phantom course representing the degree</param>
+    /// <exception cref="ArgumentException">
+    /// Thrown when the <paramref name="degreeCourse"/> is not found in graph
+    /// or is not a root node (has incommming edges).
+    /// </exception>
     public void Schedule(int termSize, int creditCount, Course degreeCourse) {
       // Find all root vertices (vertices with no incoming edges)
       List<CourseVertex> roots = new List<CourseVertex>(this.Vertices);
