@@ -45,7 +45,7 @@ namespace CourseGraph {
 
 
     /// <summary>
-    /// Time complexity: O(n) where n is the number of vertices
+    /// Time complexity: O(v)
     /// </summary>
     /// <param name="course">The course we want to find</param>
     /// <returns>The index of the given adjacent vertex in E; otherwise returns -1</returns>
@@ -76,7 +76,7 @@ namespace CourseGraph {
     }
 
     /// <summary>
-    /// Time complexity: O(n)
+    /// Worst case time complexity: O(v)
     /// </summary>
     /// <param name="course">The course we want to find</param>
     /// <returns>The index of the given vertex (if found); otherwise returns -1</returns>
@@ -92,7 +92,7 @@ namespace CourseGraph {
     /// Adds the given vertex to the graph
     /// Note: Duplicate vertices are not added
     /// NOTE: This also adds the prerequiste and corequsite courses.
-    /// Time complexity: O(n) due to FindVertex
+    /// Time complexity: O(v) due to FindVertex
     /// </summary>
     /// <param name="course">The course we want to add</param>
     public void AddVertex(Course course) {
@@ -116,7 +116,7 @@ namespace CourseGraph {
     /// <summary>
     /// Removes the given vertex and all incident edges from the graph
     /// Note: Nothing is done if the vertex does not exist
-    /// Time complexity: O(max(n,m)) where m is the number of edges 
+    /// Worst case time complexity: O(v + e)
     /// </summary>
     /// <param name="course">The courser we want to remove</param>
     public void RemoveVertex(Course course) {
@@ -149,7 +149,8 @@ namespace CourseGraph {
 
     /// <summary>
     /// Returns true if there is a cycle between the given vertices
-    /// Time complexity: O(n + m)
+    /// TODO: Change it
+    /// Time complexity: O(v + e)
     /// </summary>
     private bool IsCyclic(int fromIndex, int toIndex) {
       var visited = new HashSet<int>();
@@ -173,7 +174,8 @@ namespace CourseGraph {
     /// Adds the given edge (name1, name2) to the graph
     /// Notes: Duplicate edges are not added
     ///        By default, the cost of the edge is 0
-    /// Time complexity: O(n)
+    ///        We don't add an edge if a cycle so it does not become a problem
+    /// Worst case time complexity: O(v + e)
     /// </summary>
     public void AddEdge(Course course1, Course course2, CourseRelation relation) {
       int course1Index = this.FindVertexIndex(course1);
@@ -197,7 +199,7 @@ namespace CourseGraph {
     /// <summary>
     /// Removes the given edge (name1, name2) from the graph
     /// Note: Nothing is done if the edge does not exist
-    /// Time complexity: O(n)
+    /// Time complexity: O(e)
     /// </summary>
     public void RemoveEdge(Course course1, Course course2) {
       int course1Index = this.FindVertexIndex(course1);
@@ -321,7 +323,7 @@ namespace CourseGraph {
     /// <summary>
     /// Depth-First Search
     /// Performs a depth-first search (with re-start)
-    /// Time complexity: O(max,(n,m))
+    /// Time complexity: O(max,(v,e))
     /// </summary>
     public void DepthFirstSearch() {
       foreach (var vertex in this.Vertices) {
@@ -350,7 +352,7 @@ namespace CourseGraph {
     /// <summary>
     /// Breadth-First Search
     /// Performs a breadth-first search (with re-start)
-    /// Time Complexity: O(max(n,m))
+    /// Time Complexity: O(max(v,e))
     /// </summary>
     public void BreadthFirstSearch() {
       foreach (var vertex in this.Vertices) {
@@ -418,7 +420,7 @@ namespace CourseGraph {
 
     /// <summary>
     /// Prints out all vertices of a graph
-    /// Time complexity: O(n)
+    /// Time complexity: O(v)
     /// </summary>
     public void PrintVertices() {
       foreach (var vertex in this.Vertices) {
@@ -429,7 +431,7 @@ namespace CourseGraph {
 
     /// <summary>
     /// Prints out all edges of the graph
-    /// Time complexity: O(m)
+    /// Time complexity: O(e)
     /// </summary>
     public void PrintEdges() {
       foreach (var vertex in this.Vertices) {
