@@ -2,7 +2,7 @@ using CourseGraph;
 using System.Collections.Generic;
 using System;
 
-CourseGraph.CourseGraph graph = new CourseGraph.CourseGraph(termMaxSize: 5);
+CourseGraph.CourseGraph graph = new CourseGraph.CourseGraph();
 
 
 // Year 1

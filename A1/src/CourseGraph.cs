@@ -18,8 +18,6 @@ namespace CourseGraph {
       this.AdjVertex = vertex;
       this.Relation = relation;
     }
-
-
   }
 
   public class CourseVertex {
@@ -64,12 +62,9 @@ namespace CourseGraph {
 
   public class CourseGraph : IDirectedGraph<Course, CourseRelation> {
     public List<CourseVertex> Vertices { get; private set; }
-    public int TermMaxSize { get; private set; }
 
-    public CourseGraph(int termMaxSize) {
+    public CourseGraph() {
       this.Vertices = new List<CourseVertex>();
-      if (termMaxSize <= 0) throw new ArgumentException("N must be greater than 0");
-      this.TermMaxSize = termMaxSize;
     }
 
     /// <summary>
@@ -117,15 +112,13 @@ namespace CourseGraph {
     /// <param name="course">The courser we want to remove</param>
     public void RemoveVertex(Course course) {
       // If a course B is removed then its pre- and co-requisite courses
-      // become the pre- and co-requisite courses for those course for which 
+      // become the pre- and co-requisite courses for those course for which
       // B was a pre- and co-requisite.
       int i = this.FindVertexIndex(course);
       if (i > -1) {
-        var affected = new List<CourseVertex>();
         foreach (var vertex in this.Vertices) {
           foreach (var edge in vertex.Edges) {
             if (edge.AdjVertex?.Value?.Equals(course) ?? false) { // Incident edge
-              affected.Add(vertex);
               vertex.Edges.Remove(edge);
               // Patch the relations
               foreach (var coRequisite in course.CoRequisites) {
@@ -148,15 +141,14 @@ namespace CourseGraph {
     /// Time complexity: O(v + e)
     /// </summary>
     private bool IsCyclic(int fromIndex, int toIndex) {
-      var visited = new HashSet<int>();
       var stack = new Stack<int>();
       stack.Push(fromIndex);
 
       while (stack.Count > 0) {
         int current = stack.Pop();
         if (current == toIndex) return true;
-        if (visited.Contains(current)) continue;
-        visited.Add(current);
+        if (this.Vertices[current].Visited) continue;
+        this.Vertices[current].Visited = true;
         foreach (var edge in this.Vertices[current].Edges) {
           int adjacentIndex = this.FindVertexIndex(edge.AdjVertex.Value);
           if (adjacentIndex >= 0) stack.Push(adjacentIndex);
@@ -345,6 +337,7 @@ namespace CourseGraph {
     /// <param name="isDegreeCourse">Whether this root is the degree course (phantom course)</param>
     private void ComputeTermBoundsForDegree(CourseVertex root, int termSize, int creditCount, bool isDegreeCourse) {
       // Stack stores: (vertex, depth, isReturning (returning from children))
+      // TODO: Heavily test this
       var stack = new Stack<(CourseVertex vertex, int depth, bool isReturning)>();
 
       stack.Push((root, 0, false));
@@ -391,10 +384,9 @@ namespace CourseGraph {
         foreach (var edge in vertex.Edges) {
           if (!edge.AdjVertex.Visited) {
             // For corequisites, don't increase depth
-            if (edge.Relation == CourseRelation.Prereq) {
-              depth++;
-            }
-            stack.Push((edge.AdjVertex, depth, false));
+            var nextDepth = depth;
+            if (edge.Relation == CourseRelation.Prereq) nextDepth++;
+            stack.Push((edge.AdjVertex, nextDepth, false));
           }
         }
       }
