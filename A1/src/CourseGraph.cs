@@ -31,6 +31,8 @@ namespace CourseGraph {
     public int TMin { get; set; }
     /// <summary>Maximum term this course can be taken in (full tree).</summary>
     public int TGlobalMax { get; set; }
+    /// <summary>Maximum term this course can be taken in (based on the degree).</summary>
+    public int TDegreeMax { get; set; }
 
     public CourseVertex(Course value) {
       this.Value = value;
@@ -38,6 +40,7 @@ namespace CourseGraph {
       this.Edges = new List<CourseEdge>();
       this.TMin = 0;
       this.TGlobalMax = 0;
+      this.TDegreeMax = 0;
     }
 
 
@@ -145,40 +148,25 @@ namespace CourseGraph {
     }
 
     /// <summary>
-    /// Returns true if the graph contains a directed cycle
+    /// Returns true if there is a cycle between the given vertices
     /// Time complexity: O(n + m)
     /// </summary>
-    private bool IsCyclic(int courseIndex) {
-      int n = this.Vertices.Count;
-      if (n == 0) return false;
+    private bool IsCyclic(int fromIndex, int toIndex) {
+      var visited = new HashSet<int>();
+      var stack = new Stack<int>();
+      stack.Push(fromIndex);
 
-      // Compute in-degrees: for each vertex, count edges that point to it
-      var inDegree = new Dictionary<CourseVertex, int>();
-      foreach (var vertex in this.Vertices) {
-        inDegree[vertex] = 0;
-      }
-      foreach (var vertex in this.Vertices) {
-        foreach (var edge in vertex.Edges) {
-          inDegree[edge.AdjVertex]++;
+      while (stack.Count > 0) {
+        int current = stack.Pop();
+        if (current == toIndex) return true;
+        if (visited.Contains(current)) continue;
+        visited.Add(current);
+        foreach (var edge in this.Vertices[current].Edges) {
+          int adjacentIndex = this.FindVertexIndex(edge.AdjVertex.Course);
+          if (adjacentIndex >= 0) stack.Push(adjacentIndex);
         }
       }
-
-      // BFS: queue all vertices with in-degree 0
-      var queue = new Queue<CourseVertex>();
-      foreach (var vertex in this.Vertices) {
-        if (inDegree[vertex] == 0) queue.Enqueue(vertex);
-      }
-      int processed = 0;
-      while (queue.Count > 0) {
-        var vertex = queue.Dequeue();
-        processed++;
-        foreach (var edge in vertex.Edges) {
-          var adjacent = edge.AdjVertex;
-          inDegree[adjacent]--;
-          if (inDegree[adjacent] == 0) queue.Enqueue(adjacent);
-        }
-      }
-      return processed != n;
+      return false;
     }
 
     /// <summary>
@@ -195,12 +183,15 @@ namespace CourseGraph {
       if (course1Index > -1 && course2Index > -1) {
         // Does the edge not already exist?
         if (this.Vertices[course1Index].FindEdgeIndex(course2) == -1) {
+          if (this.IsCyclic(course1Index, course2Index)) {
+            throw new ArgumentException("CourseGraph cannot contain cycles");
+          }
+
           CourseEdge courseEdge = new CourseEdge(this.Vertices[course2Index], relation);
           this.Vertices[course1Index].Edges.Add(courseEdge);
           this.RecomputeTermBounds(new[] { this.Vertices[course1Index] });
         }
       }
-      if (course1Index >= 0 && this.IsCyclic(course1Index)) throw new ArgumentException("CourseGraph cannot contain cycles");
     }
 
     /// <summary>
