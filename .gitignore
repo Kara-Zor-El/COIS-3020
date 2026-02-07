@@ -2,4 +2,7 @@
 **/obj/
 **/bin/
 
+# Nix
+.direnv/
+
 coursegraph.md
