@@ -105,7 +105,7 @@ namespace CourseGraph {
           this.AddVertex(preRequisite);
           this.AddEdge(course, preRequisite, CourseRelation.Prereq);
         }
-        RecomputeTermBounds(new[] { courseVertex });
+        this.RecomputeTermBounds(new[] { courseVertex });
 
       }
     }
@@ -140,7 +140,7 @@ namespace CourseGraph {
           }
         }
         this.Vertices.RemoveAt(i);
-        RecomputeTermBounds(affected.Count > 0 ? affected : this.Vertices);
+        this.RecomputeTermBounds(affected.Count > 0 ? affected : this.Vertices);
       }
     }
 
@@ -197,7 +197,7 @@ namespace CourseGraph {
         if (this.Vertices[course1Index].FindEdgeIndex(course2) == -1) {
           CourseEdge courseEdge = new CourseEdge(this.Vertices[course2Index], relation);
           this.Vertices[course1Index].Edges.Add(courseEdge);
-          RecomputeTermBounds(new[] { this.Vertices[course1Index] });
+          this.RecomputeTermBounds(new[] { this.Vertices[course1Index] });
         }
       }
       if (course1Index >= 0 && this.IsCyclic(course1Index)) throw new ArgumentException("CourseGraph cannot contain cycles");
@@ -215,7 +215,7 @@ namespace CourseGraph {
       int course2Index = course1Vertex.FindEdgeIndex(course2);
       if (course2Index <= -1) return;
       course1Vertex.Edges.RemoveAt(course2Index);
-      RecomputeTermBounds(new[] { course1Vertex });
+      this.RecomputeTermBounds(new[] { course1Vertex });
     }
 
     /// <summary>
@@ -223,7 +223,7 @@ namespace CourseGraph {
     /// See: https://www.geeksforgeeks.org/dsa/topological-sorting-indegree-based-solution/ for algorithm details
     /// </summary>
     private void RecomputeTermBounds() {
-      RecomputeTermBounds(this.Vertices);
+      this.RecomputeTermBounds(this.Vertices);
     }
 
     /// <summary>
@@ -241,7 +241,7 @@ namespace CourseGraph {
           revPrereq[edge.AdjVertex].Add(dependent);
         }
       }
-    
+
       // Build the number of prereqs map
       var numPrereqs = new Dictionary<CourseVertex, int>();
       foreach (var vertex in this.Vertices) {
@@ -419,8 +419,9 @@ namespace CourseGraph {
         if (!degree.PreRequisites.Contains(course))
           degree.PreRequisites.Add(course);
         this.AddEdge(degree, course, CourseRelation.Prereq);
-      } else if (degreeVertex != null) {
-        RecomputeTermBounds(new[] { degreeVertex });
+      }
+      else if (degreeVertex != null) {
+        this.RecomputeTermBounds(new[] { degreeVertex });
       }
     }
 
