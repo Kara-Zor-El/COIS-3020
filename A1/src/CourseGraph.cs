@@ -29,8 +29,6 @@ namespace CourseGraph {
 
     /// <summary>Minimum term this course can be taken in.</summary>
     public int TMin { get; set; }
-    /// <summary>Maximum term this course can be taken in (full tree).</summary>
-    public int TGlobalMax { get; set; }
     /// <summary>Maximum term this course can be taken in (based on the degree).</summary>
     public int TDegreeMax { get; set; }
 
@@ -39,7 +37,6 @@ namespace CourseGraph {
       this.Visited = false;
       this.Edges = new List<CourseEdge>();
       this.TMin = 0;
-      this.TGlobalMax = 0;
       this.TDegreeMax = 0;
     }
 
