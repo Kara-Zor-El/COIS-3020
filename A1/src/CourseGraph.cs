@@ -162,7 +162,7 @@ namespace CourseGraph {
         if (visited.Contains(current)) continue;
         visited.Add(current);
         foreach (var edge in this.Vertices[current].Edges) {
-          int adjacentIndex = this.FindVertexIndex(edge.AdjVertex.Course);
+          int adjacentIndex = this.FindVertexIndex(edge.AdjVertex.Value);
           if (adjacentIndex >= 0) stack.Push(adjacentIndex);
         }
       }
