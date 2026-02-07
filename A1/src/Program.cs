@@ -2,7 +2,7 @@ using CourseGraph;
 using System.Collections.Generic;
 using System;
 
-CourseGraph.CourseGraph graph = new CourseGraph.CourseGraph(nPerTerm: 5);
+CourseGraph.CourseGraph graph = new CourseGraph.CourseGraph(termMaxSize: 5);
 
 // add phantom root node for the degree
 Course degree = new Course(0, "Computer Science", new List<Course>(), new List<Course>(), true);
@@ -96,11 +96,9 @@ graph.AddVertex(unrelated);
 graph.AddVertex(unrelated2);
 graph.AddVertex(unrelated3);
 
-// print out the t_min
+// print out the t_min and t_global_max per vertex
 foreach (var vertex in graph.Vertices) {
-  Console.WriteLine(vertex.Value.Name + " - " + vertex.TMin);
+  Console.WriteLine(vertex.Value.Name + " - TMin: " + vertex.TMin + ", TGlobalMax: " + vertex.TGlobalMax);
 }
-// print out the t_global_max
-Console.WriteLine("t_global_max: " + graph.TGlobalMax);
 
 graph.WriteToFile("coursegraph.md");

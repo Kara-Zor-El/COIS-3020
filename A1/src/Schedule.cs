@@ -20,11 +20,11 @@ namespace CourseGraph {
     public int TMax { get; }
 
     public Schedule(Course degree, int n, int c, int chainDepth) {
-      Degree = degree;
-      N = n;
-      C = c;
-      ChainDepth = chainDepth;
-      TMax = 2 * C - chainDepth;
+      this.Degree = degree;
+      this.N = n;
+      this.C = c;
+      this.ChainDepth = chainDepth;
+      this.TMax = 2 * this.C - chainDepth;
     }
 
     public override string ToString() {
