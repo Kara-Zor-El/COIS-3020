@@ -1,0 +1,84 @@
+{
+  "Degrees": [
+    {
+      "Name": "COIS",
+      "IsPhantom": true,
+      "CoRequisites": [],
+      "PreRequisites": [
+        "COIS-1010",
+        "COIS-1020"
+      ],
+      "TimeTableInfos": []
+    }
+  ],
+  "Courses": [
+    {
+      "Name": "COIS-1010",
+      "IsPhantom": false,
+      "CoRequisites": [],
+      "PreRequisites": [],
+      "TimeTableInfos": [
+        {
+          "OfferedTerm": 0,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "09:00:00",
+              "End": "10:00:00"
+            },
+            {
+              "Day": 3,
+              "Start": "09:00:00",
+              "End": "10:00:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 1,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "09:00:00",
+              "End": "10:00:00"
+            },
+            {
+              "Day": 3,
+              "Start": "09:00:00",
+              "End": "10:00:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "COIS-1020",
+      "IsPhantom": false,
+      "CoRequisites": [],
+      "PreRequisites": [
+        "COIS-1010"
+      ],
+      "TimeTableInfos": [
+        {
+          "OfferedTerm": 0,
+          "TimeSlots": [
+            {
+              "Day": 2,
+              "Start": "10:00:00",
+              "End": "12:00:00"
+            },
+            {
+              "Day": 4,
+              "Start": "10:00:00",
+              "End": "12:00:00"
+            },
+            {
+              "Day": 5,
+              "Start": "08:00:00",
+              "End": "15:00:00"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
