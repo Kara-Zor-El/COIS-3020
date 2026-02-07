@@ -102,9 +102,5 @@ graph.AddVertex(degree);
 
 // print out the t_min and t_global_max per vertex
 graph.Schedule(5, 2, degree);
-foreach (var vertex in graph.Vertices) {
-  // Give name, TMin, and TDegreeMax
-  Console.WriteLine($"{vertex.Value.Name}: {vertex.TMin}, {vertex.TDegreeMax}");
-}
 
 graph.WriteToFile("coursegraph.md");

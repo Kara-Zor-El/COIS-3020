@@ -26,16 +26,16 @@ namespace CourseGraph {
     public List<CourseEdge> Edges { get; set; }     // List of adjacency vertices
 
     /// <summary>Minimum term this course can be taken in.</summary>
-    public int TMin { get; set; }
+    public int TermMin { get; set; }
     /// <summary>Maximum term this course can be taken in (based on the degree).</summary>
-    public int TDegreeMax { get; set; }
+    public int TermMax { get; set; }
 
     public CourseVertex(Course value) {
       this.Value = value;
       this.Visited = false;
       this.Edges = new List<CourseEdge>();
-      this.TMin = 0;
-      this.TDegreeMax = 0;
+      this.TermMin = 0;
+      this.TermMax = 0;
     }
 
 
@@ -61,7 +61,7 @@ namespace CourseGraph {
   }
 
   public class CourseGraph : IDirectedGraph<Course, CourseRelation> {
-    public List<CourseVertex> Vertices { get; private set; }
+    private List<CourseVertex> Vertices { get; set; }
 
     public CourseGraph() {
       this.Vertices = new List<CourseVertex>();
@@ -271,7 +271,7 @@ namespace CourseGraph {
       // TODO: Test this fully
       bool foundLink = false;
       int degreeIndex = this.FindVertexIndex(degree);
-      CourseVertex degreeVertex = degreeIndex >= 0 ? this.Vertices[degreeIndex] : null;
+      CourseVertex degreeVertex = this.Vertices[degreeIndex];
       if (degreeIndex >= 0) {
         foreach (var edge in degreeVertex.Edges) {
           if (edge.AdjVertex?.Value?.Equals(course) ?? false) { // Incident edge
@@ -292,7 +292,7 @@ namespace CourseGraph {
     }
 
     /// <summary>
-    /// Computes TMin and TDegreeMax for each course based on the degree requirements.
+    /// Computes TermMin and TermMax for each course based on the degree requirements.
     /// Time complexity: O(v + e)
     /// </summary>
     /// <param name="termSize">Number of courses per term</param>
@@ -303,33 +303,35 @@ namespace CourseGraph {
       List<CourseVertex> roots = new List<CourseVertex>(this.Vertices);
 
       foreach (var vert in this.Vertices) {
+        // Clear TermMin and TermMax for all vertices
+        // and set all vertices as unvisited
+        vert.TermMin = 0;
+        vert.TermMax = 0;
+        vert.Visited = false;
         foreach (var edge in vert.Edges) {
           roots.RemoveAll(r => r.Value.Equals(edge.AdjVertex.Value));
         }
       }
 
       // Make sure degreeCourse is in roots
-      CourseVertex degreeVertex = roots.FirstOrDefault(r => r.Value.Equals(degreeCourse));
-      if (degreeVertex == null) {
+      int degreeIdx = this.FindVertexIndex(degreeCourse);
+      if (degreeIdx < 0) throw new ArgumentException("Degree course must be in the graph");
+      CourseVertex degreeVertex = this.Vertices[degreeIdx];
+      if (!roots.Contains(degreeVertex)) {
         throw new ArgumentException("Degree course must be a root node");
+      } else {
+        roots.Remove(degreeVertex);
+        roots.Add(degreeVertex);
       }
 
-      // Clear TMin and TDegreeMax for all vertices
-      // and set all vertices as unvisited
-      foreach (var vertex in this.Vertices) {
-        vertex.TMin = 0;
-        vertex.TDegreeMax = 0;
-        vertex.Visited = false;
-      }
-
-      // Compute TMin and TDegreeMax for each root
+      // Compute TermMin and TermMax for each root
       foreach (var root in roots) {
         this.ComputeTermBoundsForDegree(root, termSize, creditCount, root == degreeVertex);
       }
     }
 
     /// <summary>
-    /// DFS to compute TMin and TDegreeMax for courses of a given root.
+    /// DFS to compute TermMin and TermMax for courses of a given root.
     /// </summary>
     /// <param name="root">The course to start from</param>
     /// <param name="termSize">Number of courses per term</param>
@@ -351,24 +353,24 @@ namespace CourseGraph {
             foreach (var edge in vertex.Edges) {
               if (edge.Relation == CourseRelation.Prereq) {
                 // Prerequisites must be completed before this course
-                earliestTerm = Math.Max(earliestTerm, edge.AdjVertex.TMin + 1);
+                earliestTerm = Math.Max(earliestTerm, edge.AdjVertex.TermMin + 1);
               } else {
                 // Corequisites can be taken at the same time
-                earliestTerm = Math.Max(earliestTerm, edge.AdjVertex.TMin);
+                earliestTerm = Math.Max(earliestTerm, edge.AdjVertex.TermMin);
               }
             }
-            vertex.TMin = Math.Max(vertex.TMin, earliestTerm);
+            vertex.TermMin = Math.Max(vertex.TermMin, earliestTerm);
           }
 
           if (!vertex.Value.IsPhantom) {
-            // Compute TDegreeMax: TDegreeMax = termSize * creditCount - depth
+            // Compute TermMax: TermMax = termSize * creditCount - depth
             int newTMax = termSize * creditCount - depth;
 
-            // Update TDegreeMax
-            if (isDegreeCourse || vertex.TDegreeMax == 0) {
-              vertex.TDegreeMax = newTMax;
+            // Update TermMax
+            if (isDegreeCourse || vertex.TermMax == 0) {
+              vertex.TermMax = newTMax;
             } else {
-              vertex.TDegreeMax = Math.Max(vertex.TDegreeMax, newTMax);
+              vertex.TermMax = Math.Max(vertex.TermMax, newTMax);
             }
           }
 
