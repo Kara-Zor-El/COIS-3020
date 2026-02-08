@@ -2,6 +2,7 @@
 /// This file is used to extract data from the courses.json file which was obtained from the Trent system.
 /// We have chosen to not upload courses.json due to licensing issues but we have uploaded courseData.json which contains limited
 /// non copyrighted information and mock data about courses at trent.
+/// NOTE: THIS IS NOT PART OF THE CORE SCHEDULING ALGORITHM!!!
 /// </summary>
 using System;
 using System.Collections.Generic;
