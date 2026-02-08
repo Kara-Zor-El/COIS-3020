@@ -2,6 +2,10 @@
 **/obj/
 **/bin/
 
+# Application Local Testing Files
+courseGraph.md
+schedule.md
+
 # Nix
 .direnv/
 
