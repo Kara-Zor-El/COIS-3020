@@ -3140,6 +3140,16 @@
               "End": "12:50:00"
             }
           ]
+        },
+        {
+          "OfferedTerm": 1,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "10:00:00",
+              "End": "12:50:00"
+            }
+          ]
         }
       ]
     },
@@ -12258,6 +12268,26 @@
               "End": "15:50:00"
             }
           ]
+        },
+        {
+          "OfferedTerm": 1,
+          "TimeSlots": [
+            {
+              "Day": 3,
+              "Start": "14:00:00",
+              "End": "15:50:00"
+            },
+            {
+              "Day": 5,
+              "Start": "09:00:00",
+              "End": "09:50:00"
+            },
+            {
+              "Day": 1,
+              "Start": "13:00:00",
+              "End": "15:50:00"
+            }
+          ]
         }
       ]
     },
@@ -12566,6 +12596,31 @@
               "End": "14:50:00"
             }
           ]
+        },
+        {
+          "OfferedTerm": 1,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "08:30:00",
+              "End": "11:20:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 1,
+          "TimeSlots": [
+            {
+              "Day": 4,
+              "Start": "16:00:00",
+              "End": "17:50:00"
+            },
+            {
+              "Day": 5,
+              "Start": "13:00:00",
+              "End": "14:50:00"
+            }
+          ]
         }
       ]
     },
@@ -12666,6 +12721,21 @@
       "TimeTableInfos": [
         {
           "OfferedTerm": 0,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "13:00:00",
+              "End": "14:50:00"
+            },
+            {
+              "Day": 3,
+              "Start": "10:00:00",
+              "End": "10:50:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 1,
           "TimeSlots": [
             {
               "Day": 1,
@@ -13175,7 +13245,7 @@
       ],
       "TimeTableInfos": [
         {
-          "OfferedTerm": 1,
+          "OfferedTerm": 0,
           "TimeSlots": [
             {
               "Day": 2,
