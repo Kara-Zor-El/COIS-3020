@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace CourseGraph {
@@ -95,6 +96,7 @@ namespace CourseGraph {
     /// <summary>
     /// The edges of this vertex.
     /// </summary>
+    /// TODO: Make edges just be a list of index's into a global edge list (this allows for faster two way lookups)
     public List<CourseEdge> Edges { get; set; }     // List of adjacency vertices
 
     /// <summary>Minimum term this course can be taken in.</summary>
@@ -303,7 +305,7 @@ namespace CourseGraph {
     /// Thrown when the <paramref name="degreeCourse"/> is not found in graph
     /// or is not a root node (has incommming edges).
     /// </exception>
-    public void Schedule(int termSize, int creditCount, Course degreeCourse) {
+    public Schedule.Schedule Schedule(int termSize, int creditCount, Course degreeCourse) {
       /*
        * NOTE:
        *   The problem defined by the assignment is to find a schedule assuming there are no 
@@ -341,6 +343,9 @@ namespace CourseGraph {
        *   Once we have these constraints, we begin a greedy scheduling approach,
        * TODO:
        */
+
+      if (creditCount > this.Vertices.Count)
+        throw new ArgumentException("Impossible to fill credit count, there aren't enough courses");
       // -------------- Compute Constraints --------------
       // Find all root vertices (vertices with no incoming edges)
       List<CourseVertex> roots = new List<CourseVertex>(this.Vertices);
@@ -356,7 +361,7 @@ namespace CourseGraph {
       }
       // Make sure degreeCourse is in roots
       int degreeIdx = this.FindVertexIndex(degreeCourse);
-      if (degreeIdx < 0) throw new ArgumentException("Degree course must be in the graph");
+      if (degreeIdx < 0) throw new ArgumentException("Degree: {} course must be in the graph");
       CourseVertex degreeVertex = this.Vertices[degreeIdx];
       if (!roots.Contains(degreeVertex)) {
         throw new ArgumentException("Degree course must be a root node");
@@ -375,22 +380,92 @@ namespace CourseGraph {
       }
 
       // -------------- Greedy Schedule --------------
-      var scheduleData = new List<(Course course, TimeTableInfo[] timeTableInfos)[]> {
-        new (Course course, TimeTableInfo[] timeTableInfos)[termSize] // We always have at least 1 term
-      };
+      var schedule = new Schedule.Schedule(degree: degreeCourse, maxTermSize: termSize);
       // The highest priority placement is going to be the course with the highest T_max,
       // as this course has the longest pre-requisite chain (and likely defines how many terms).
       // First we schedule the required courses
       var coursesToPlace = new Stack<CourseVertex>(degreeVertex.Edges.Select(e => e.AdjVertex).OrderBy(c => c.TermMax));
       while (coursesToPlace.Count > 0) {
-        Console.WriteLine("New Iteration");
         var courseToPlace = coursesToPlace.Pop();
         if (courseToPlace.Visited) continue; // We've already placed this course
-        foreach (var vert in this.TopologicalSort(courseToPlace)) {
-          if (vert.Visited) continue; // We've already placed this course
-          Console.WriteLine($"Placing {vert.Value.Name} with T_min {vert.TermMin} and T_max {vert.TermMax}");
-          vert.Visited = true;
+        foreach (var course in this.TopologicalSort(courseToPlace)) {
+          this.PlaceInScheduleData(schedule, course);
         }
+        if (!courseToPlace.Visited)
+          throw new Exception("Impossible: Failed to place required course");
+      }
+
+      // Begin placing filler courses (Non required courses used to hit creditCount)
+      var fillerCourses = new Stack<CourseVertex>(this.Vertices.Where(v => !v.Visited && !v.Value.IsPhantom).OrderBy(v => v.TermMax));
+      while (fillerCourses.Count > 0 && schedule.CourseCount < creditCount) {
+        var fillerCourse = fillerCourses.Pop();
+        if (fillerCourse.Visited) continue; // We've already placed this course
+        // NOTE: This isn't giving us optimal yet due to co-req spacing and such
+        try {
+          foreach (var course in this.TopologicalSort(fillerCourse)) {
+            this.PlaceInScheduleData(schedule, course);
+          }
+        }
+        catch {
+          continue;
+        }
+        if (!fillerCourse.Visited)
+          throw new Exception("Impossible: Failed to place unrequired course");
+      }
+      // TODO: Figure out how to place filler courses (corequisite's make this really annoying)
+      //       One idea would be to place the leaf nodes first but we want to prioritize nodes that let us place a dependent node later 
+      //       (or we could lock ourself into a situation where we can't place the node)
+
+      // TODO: Ensure we hit the requirements and return
+      if (schedule.CourseCount < creditCount)
+        Console.WriteLine($"Impossible: Failed to hit credit count, CourseCount {schedule.CourseCount}, creditCount: {creditCount}");
+      //   throw new Exception($"Impossible: Failed to hit credit count, CourseCount {schedule.CourseCount}, creditCount: {creditCount}");
+      return schedule;
+    }
+
+    private void PlaceInScheduleData(
+      Schedule.Schedule schedule,
+      CourseVertex courseVertex
+    ) {
+      // The course was already placed
+      if (courseVertex.Visited) return;
+      Console.WriteLine($"Placing {courseVertex.Value.Name} with T_min {courseVertex.TermMin} and T_max {courseVertex.TermMax}");
+      // TODO: This should be possible to remove as I think it's handled by our topological sort
+      // // Ensure we place co-requisites courses first
+      // foreach (var coreq in courseVertex.Edges.Where(e => e.Relation == CourseRelation.Coreq)) {
+      //   this.PlaceInScheduleData(schedule, coreq.AdjVertex);
+      // }
+      // Determine earliest course placement based off terms of all pre-req and co-req
+      var minCoreq = courseVertex.Edges
+                      .Where(e => e.Relation == CourseRelation.Coreq)
+                      .Select(e => schedule.GetCourseTerm(e.AdjVertex.Value))
+                      .DefaultIfEmpty(0)
+                      .Max();
+      var minPrereq = courseVertex.Edges
+                      .Where(e => e.Relation == CourseRelation.Prereq)
+                      .Select(e => schedule.GetCourseTerm(e.AdjVertex.Value))
+                      .DefaultIfEmpty(0)
+                      .Max() + 1;
+      // TODO: Investigate weather we actually use t_min
+      // TODO: Ensure my -1 logic hear actually makes sense
+      var courseMinimumTerm = Math.Max(minCoreq, Math.Max(minPrereq, courseVertex.TermMin)) - 1;
+      // Place the actual course
+      Course course = courseVertex.Value;
+      for (int i = courseMinimumTerm; i < courseVertex.TermMax; i++) {
+        if (schedule.IsTermFull(i)) continue; // Can't place in a full term.
+        var termType = schedule.GetTermType(i);
+        var possibleTimeSlots = course.TimeTableInfos.Where(slot => slot.OfferedTerm == termType);
+        if (!possibleTimeSlots.Any()) continue; // No timeSlots exist this semester
+        var timeSlot = possibleTimeSlots.FirstOrDefault(t => !schedule.IsTimeSlotTaken(t, i), null);
+        // TODO: Check if any overlaps can be moved (This could reveal a more optimal schedule)
+        if (timeSlot == null) continue; // No available timeslot
+        // Finally add the course
+        schedule.AddCourse(course: course, timeTableInfo: timeSlot, term: i);
+        courseVertex.Visited = true;
+        break;
+      }
+      if (courseVertex.Visited == false) {
+        throw new Exception($"Failed to place course: ${course.Name}");
       }
     }
 
@@ -400,6 +475,7 @@ namespace CourseGraph {
     /// https://www.geeksforgeeks.org/dsa/topological-sorting-indegree-based-solution/
     /// </summary>
     private IEnumerable<CourseVertex> TopologicalSort(CourseVertex root) {
+      // An enumerator means that we can use this like an iterator despite it being a function.
       var visited = new HashSet<CourseVertex>();
       var tempMark = new HashSet<CourseVertex>();
 
@@ -436,6 +512,7 @@ namespace CourseGraph {
     /// <param name="creditCount">Total number of credits required</param>
     /// <param name="isDegreeCourse">Whether this root is the degree course (phantom course)</param>
     private void ComputeTermBoundsForDegree(CourseVertex root, int creditCount, bool isDegreeCourse) {
+      // TODO: Determine if there is a simpler / faster way we can compute `T_max`
       // Stack stores: (vertex, depth, isReturning (returning from children))
       var stack = new Stack<(CourseVertex vertex, int depth, bool isReturning)>();
       // TODO: Heavily test this

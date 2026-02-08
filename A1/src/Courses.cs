@@ -111,6 +111,8 @@ namespace CourseGraph {
             throw new ArgumentException("Course time slot start time must be before end time");
           if (timeSlot.Start < TimeTableInfo.EarliestTime || timeSlot.End > TimeTableInfo.LatestTime)
             throw new ArgumentException("Course time slots must be between 8:00 and 22:00");
+          if (timeSlot.Day == DayOfWeek.Sunday || timeSlot.Day == DayOfWeek.Saturday)
+            throw new ArgumentException("Courses cannot appear on the weekend");
         }
       }
     }
