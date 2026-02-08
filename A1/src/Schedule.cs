@@ -78,7 +78,8 @@ namespace Schedule {
       var possibleTimeSlots = course.TimeTableInfos.Where(t => t.OfferedTerm == termType);
       if (!possibleTimeSlots.Any())
         throw new ArgumentException($"Course {course.Name} is not offered in term {term}");
-      if (this.DoesCourseHaveValidTimeSlot(course, possibleTimeSlots.ToArray(), term).Count <= 0)
+      var nonOverlappingTimeSlots = this.GetCourseValidTimeSlots(course, possibleTimeSlots.ToArray(), term);
+      if (nonOverlappingTimeSlots.Count <= 0)
         throw new ArgumentException($"Course {course.Name}, can't be scheduled do to overlaps in term {term}");
       // Grow the term table to fit
       while (this.TermData.Count <= term) {
@@ -88,7 +89,7 @@ namespace Schedule {
       for (int slotIndex = 0; slotIndex < this.MaxTermSize; slotIndex++) {
         var currentSlot = this.TermData[term][slotIndex];
         if (currentSlot != null) continue;
-        this.TermData[term][slotIndex] = (course, possibleTimeSlots.ToArray());
+        this.TermData[term][slotIndex] = (course, nonOverlappingTimeSlots.ToArray());
         this.ScheduledCourses.Add(course.Name, term);
         this.CourseCount++;
         return;
@@ -125,7 +126,7 @@ namespace Schedule {
     /// <param name="timeTableInfo">The time slot to check against</param>
     /// <param name="term">which term we are checking in</param>
     /// <returns></returns>
-    public List<TimeTableInfo> DoesCourseHaveValidTimeSlot(Course course, TimeTableInfo[] timeTableInfo, int term) {
+    public List<TimeTableInfo> GetCourseValidTimeSlots(Course course, TimeTableInfo[] timeTableInfo, int term) {
       var possibleTimeSlots = new List<TimeTableInfo>(timeTableInfo); // Clone the array
       if (this.TermData.Count <= term) return possibleTimeSlots;
       // Check if timeTableInfo has at least one item where the time doesn't overlap with anything else in this.TermData[term]
@@ -189,7 +190,11 @@ namespace Schedule {
           var slot = this.TermData[termIndex][slotIndex];
           if (slot == null) break; // Skip empty slots (Courses are added sequentially)
           var (course, timeTableInfo) = slot.Value;
-          this.TermData[termIndex][slotIndex] = (course, this.DoesCourseHaveValidTimeSlot(course, timeTableInfo, termIndex).ToArray());
+          var validTimeSlots = this.GetCourseValidTimeSlots(course, timeTableInfo, termIndex).ToArray();
+          if (!validTimeSlots.Any()) {
+            throw new Exception($"Impossible: No valid timeslot available for course {course.Name} in term {termIndex}");
+          }
+          this.TermData[termIndex][slotIndex] = (course, validTimeSlots);
         }
         // Determine which term we are in based on the starting term and the term index
         Term currentTerm = this.GetTermType(termIndex);
