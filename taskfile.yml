@@ -5,7 +5,12 @@ tasks:
     desc: Builds and runs
     cmds:
       - dotnet build A1
-      - dotnet run --project A1
+      - dotnet run --project A1 -- {{.CLI_ARGS}}
+  experiment:
+    desc: Run's an experiment
+    cmds:
+      - dotnet build A1
+      - dotnet run --project A1 -- ./courseData.json -o ./schedule.md --degree COIS --credit_count=40 --term_size=5 --log --graph_output ./courseGraph.md --debug {{.CLI_ARGS}}
   format:
    desc: Formats the application
    cmd: dotnet format A1

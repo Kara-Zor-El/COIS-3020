@@ -1,43 +1,123 @@
 using System;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
-using System.Diagnostics;
+using System.Threading;
+using Spectre.Console;
+using Spectre.Console.Cli;
 using CourseGraph;
 
-// Load Data
-var jsonString = File.ReadAllText("./courseData.json");
-var loadedCourseData = JsonSerializer.Deserialize<CourseData>(jsonString);
-var courseGraph = CourseGraph.CourseGraph.FromCourseData(loadedCourseData);
-// Test Scheduling
-var coisDegree = loadedCourseData.GetDegreeByName("COIS");
-var sw = Stopwatch.StartNew();
-var schedule = courseGraph.Schedule(termSize: 5, creditCount: Math.Min(40, loadedCourseData.Courses.Count), degreeCourse: coisDegree);
-sw.Stop();
-schedule.PrintSchedule();
-foreach (var msg in courseGraph.MissedOpportunities) {
-  Console.WriteLine(msg);
-}
-Console.WriteLine($"Failed Placements: {courseGraph.MissedOpportunities.Count}");
-Console.WriteLine($"Elapsed time: {sw.Elapsed.TotalMilliseconds} ms");
-schedule.WriteScheduleToFile("./schedule.md");
-// Write outputs
-var outputCourseData = courseGraph.GetCourseData();
-File.WriteAllText(
-  "./courseData.json",
-  JsonSerializer.Serialize(
-    outputCourseData,
-    new JsonSerializerOptions {
-      Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-      WriteIndented = true
-    }
-  )
-);
-courseGraph.WriteToFile("./courseGraph.md");
+namespace Program {
+  public class ProgramSettings : CommandSettings {
+    // General User Settings
+    [CommandArgument(0, "<course_data>")]
+    [Description("The json data bundle to load.")]
+    public required string CourseData { get; init; }
 
-// // Build Schedule
-// var schedule = new Schedule.Schedule(degree: coisDegree, termCount: 1, maxTermSize: 5, startingTerm: Term.Fall);
-// // Build First Term
-// schedule.AddCourse(cois1010, cois1010.TimeTableInfos[0], 0);
-// schedule.AddCourse(cois1020, cois1020.TimeTableInfos[0], 0);
-// // Print Schedule
-// schedule.PrintSchedule();
+    [CommandOption("-o|--output", isRequired: true)]
+    [Description("The output markdown file you would like your schedule in.")]
+    public required string ScheduleOutput { get; init; }
+
+    [CommandOption("--log", isRequired: false)]
+    [Description("Weather or not to log the schedule to the console.")]
+    [DefaultValue(false)]
+    public bool ScheduleLog { get; init; }
+
+    [CommandOption("--degree", isRequired: true)]
+    [Description("The name of the degree you are in.")]
+    public required string Degree { get; init; }
+
+    [CommandOption("--credit_count", isRequired: true)]
+    [Description("The number of credits required in your schedule.")]
+    public required int CreditCount { get; init; }
+
+    [CommandOption("--term_size", isRequired: true)]
+    [Description("The number of ")]
+    public required int TermSize { get; init; }
+    [CommandOption("--graph_output", isRequired: false)]
+    [Description("The file to write our graph to.")]
+    [DefaultValue(null)]
+#nullable enable
+    public required string? GraphOutput { get; init; }
+    // Advanced Settings
+    [CommandOption("--debug", isRequired: false)]
+    [Description("Weather to enable extra debug information.")]
+    [DefaultValue(false)]
+    public required bool DebugMode { get; init; }
+  }
+
+  public class ProgramCommand : Command<ProgramSettings> {
+    public static void EmitError(string message) {
+      AnsiConsole.MarkupLine($"[red bold]Error: {message}.[/]");
+    }
+    public static void EmitWarning(string message) {
+      AnsiConsole.MarkupLine($"[MediumOrchid]Warning: {message}.[/]");
+    }
+    public override int Execute(CommandContext context, ProgramSettings settings, CancellationToken cancellation) {
+      if (!File.Exists(settings.CourseData)) {
+        EmitError($"Course data file `{Markup.Escape(settings.Degree)}` does not exist");
+        return 1;
+      };
+      var jsonString = File.ReadAllText(settings.CourseData);
+      // NOTE: These can throw exceptions
+      var loadedCourseData = JsonSerializer.Deserialize<CourseData>(jsonString);
+      if (loadedCourseData == null) {
+        EmitError($"Invalid course data");
+        return 1;
+      }
+      var courseGraph = CourseGraph.CourseGraph.FromCourseData(loadedCourseData);
+
+      var desiredDegree = loadedCourseData.GetDegreeByName(settings.Degree);
+      if (desiredDegree == null) {
+        EmitError($"Degree `{Markup.Escape(settings.Degree)}` does not exist");
+        return -1;
+      }
+      var creditCount = Math.Min(settings.CreditCount, loadedCourseData.Courses.Count);
+      if (creditCount < settings.CreditCount) {
+        EmitWarning($"Desired credit count is impossible as only `{creditCount}` courses exist in the graph");
+      }
+      // Run the scheduler
+      var stopWatch = Stopwatch.StartNew(); // Track Performance
+      var schedule = courseGraph.Schedule(
+        termSize: settings.TermSize,
+        creditCount: creditCount,
+        degreeCourse: desiredDegree
+      );
+      stopWatch.Stop(); // End Performance Timing
+      if (settings.ScheduleLog) {
+        schedule.PrintSchedule();
+      }
+      // Debug Information
+      if (settings.DebugMode) {
+        // Log missed scheduling opportunities
+        foreach (var msg in courseGraph.MissedOpportunities) {
+          // NOTE: This could be indicate that with a different greedy algorithm 
+          //       we could reduce these or it could indicate that there is actually 
+          //       no way to place the course in the first term it can take place in.
+          //       These are primary going to be scheduling overlaps and gives us an 
+          //       idea on how to tune our algorithm.
+          EmitWarning($"Missed scheduling opportunity, {Markup.Escape(msg)}");
+        }
+        EmitWarning($"Missed `{courseGraph.MissedOpportunities.Count}` opportunities");
+        AnsiConsole.MarkupLine($"Elapsed Time: {stopWatch.Elapsed.TotalMilliseconds} ms");
+      }
+      schedule.WriteScheduleToFile(settings.ScheduleOutput);
+      AnsiConsole.MarkupLine($"[green] Wrote schedule information to `{Markup.Escape(settings.ScheduleOutput)}`.[/]");
+      // Write outputs
+      if (settings.GraphOutput != null) {
+        courseGraph.WriteToFile(settings.GraphOutput);
+        AnsiConsole.MarkupLine($"[green] Wrote graph information to `{Markup.Escape(settings.GraphOutput)}`.[/]");
+      }
+      AnsiConsole.MarkupLine($"[green] Successfully finished scheduling.[/]");
+      return 0;
+    }
+  }
+  class Program {
+    static int Main(string[] args) {
+      // Use SpectreConsole.CLI for our command line options
+      var app = new CommandApp<ProgramCommand>();
+      return app.Run(args);
+    }
+  }
+}
