@@ -445,8 +445,8 @@ namespace CourseGraph {
         var termType = schedule.GetTermType(i);
         var possibleTimeSlots = course.TimeTableInfos.Where(slot => slot.OfferedTerm == termType);
         if (!possibleTimeSlots.Any()) continue; // No timeSlots exist this semester
-        if (schedule.DoesCourseHaveValidTimeSlot(course, possibleTimeSlots.ToArray(), i).Count <= 0) {
-          this.MissedOpportunities.Add($"Couldn't schedule {course.Name} in earliest timeSlot because of schedule conflict");
+        if (schedule.GetCourseValidTimeSlots(course, possibleTimeSlots.ToArray(), i).Count <= 0) {
+          this.MissedOpportunities.Add($"Couldn't schedule {course.Name} in earliest term {i} because of schedule conflict");
           continue; // No available timeslot
         }
         // Finally add the course
