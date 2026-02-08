@@ -206,6 +206,7 @@ namespace CourseGraph {
     /// Time complexity: O(v + e)
     /// </summary>
     private bool IsCyclic(int fromIndex, int toIndex) {
+      for (int i = 0; i < this.Vertices.Count; i++) this.Vertices[i].Visited = false;
       var stack = new Stack<int>();
       stack.Push(fromIndex);
 
@@ -237,7 +238,7 @@ namespace CourseGraph {
       if (course1Index > -1 && course2Index > -1) {
         // Does the edge not already exist?
         if (this.Vertices[course1Index].FindEdgeIndex(course2) == -1) {
-          if (this.IsCyclic(course1Index, course2Index)) {
+          if (this.IsCyclic(course2Index, course1Index)) {
             throw new ArgumentException("CourseGraph cannot contain cycles");
           }
 
