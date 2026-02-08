@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "task.vscode-task",
+    "bbenoist.nix",
+    "ibecker.treefmt-vscode"
+  ]
+}

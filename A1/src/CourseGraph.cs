@@ -213,6 +213,7 @@ namespace CourseGraph {
     /// Time complexity: O(v + e)
     /// </summary>
     private bool IsCyclic(int fromIndex, int toIndex) {
+      for (int i = 0; i < this.Vertices.Count; i++) this.Vertices[i].Visited = false;
       var stack = new Stack<int>();
       stack.Push(fromIndex);
 
@@ -244,7 +245,7 @@ namespace CourseGraph {
       if (course1Index > -1 && course2Index > -1) {
         // Does the edge not already exist?
         if (this.Vertices[course1Index].FindEdgeIndex(course2) == -1) {
-          if (this.IsCyclic(course1Index, course2Index)) {
+          if (this.IsCyclic(course2Index, course1Index)) {
             throw new ArgumentException("CourseGraph cannot contain cycles");
           }
 
@@ -273,10 +274,10 @@ namespace CourseGraph {
     /// </summary>
     /// <param name="course">The course you want to update</param>
     /// <param name="degree">The degree to toggle requirement</param>
-    /// <exception cref="ArgumentException">Degree was not a phantom course.</exception>
+    /// <exception cref="ArgumentException">Degree was not a degree course.</exception>
     public void UpdateVertex(Course course, Course degree) {
-      if (!degree.IsPhantom) {
-        throw new ArgumentException("A degree is expected to be a phantom course");
+      if (!degree.IsDegree) {
+        throw new ArgumentException("Expected a degree course");
       }
       bool foundLink = false;
       int degreeIndex = this.FindVertexIndex(degree);
@@ -284,7 +285,7 @@ namespace CourseGraph {
       if (degreeIndex >= 0) {
         foreach (var edge in degreeVertex.Edges) {
           if (edge.AdjVertex?.Value?.Equals(course) ?? false) { // Incident edge
-            // A phantom node indicates that it is a node representing a degree as such it is a root required node.
+            // A degree node is a root required node.
             degreeVertex.Edges.Remove(edge); // Remove the link
             // Patch the course data
             degreeVertex.Value.CoRequisites.Remove(course.Name);
@@ -307,7 +308,7 @@ namespace CourseGraph {
     /// </summary>
     /// <param name="termSize">Number of courses per term</param>
     /// <param name="creditCount">Total number of credits required</param>
-    /// <param name="degreeCourse">The phantom course representing the degree</param>
+    /// <param name="degreeCourse">The course representing the degree</param>
     /// <exception cref="ArgumentException">
     /// Thrown when the <paramref name="degreeCourse"/> is not found in graph
     /// or is not a root node (has incommming edges).
@@ -393,7 +394,7 @@ namespace CourseGraph {
       }
 
       // Begin placing filler courses (Non required courses used to hit creditCount)
-      var fillerCourses = new Stack<CourseVertex>(this.Vertices.Where(v => !v.Visited && !v.Value.IsPhantom).OrderBy(v => v.Cost));
+      var fillerCourses = new Stack<CourseVertex>(this.Vertices.Where(v => !v.Visited && !v.Value.IsDegree).OrderBy(v => v.Cost));
       while (fillerCourses.Count > 0 && schedule.CourseCount < creditCount) {
         var fillerCourse = fillerCourses.Pop();
         if (fillerCourse.Visited) continue; // We've already placed this course
@@ -520,13 +521,13 @@ namespace CourseGraph {
     /// </summary>
     /// <returns>All degrees and courses from the graph.</returns>
     public CourseData GetCourseData() {
-      // Collect all phantom nodes and count them as degree
-      // Collect all non-phantom nodes and count them as course
+      // Collect all degree nodes and count them as degree
+      // Collect all non-degree nodes and count them as course
       var degrees = new List<Course>();
       var courses = new List<Course>();
 
       foreach (var vertex in this.Vertices) {
-        if (vertex.Value.IsPhantom) {
+        if (vertex.Value.IsDegree) {
           degrees.Add(vertex.Value);
         } else {
           courses.Add(vertex.Value);
@@ -632,7 +633,7 @@ namespace CourseGraph {
       }
 
       foreach (var vertex in this.Vertices) {
-        if (vertex.Value.IsPhantom) {
+        if (vertex.Value.IsDegree) {
           sb.AppendLine($"  style n{vertex.Value.Name} stroke:#000,stroke-width:4px");
           sb.AppendLine($"  style n{vertex.Value.Name} stroke-dasharray: 10,5");
         }

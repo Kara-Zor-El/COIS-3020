@@ -50,12 +50,11 @@ namespace CourseGraph {
     /// </summary>
     public string Name { get; }
     /// <summary>
-    /// Marks weather a course is real or just an informative node.
-    /// A phantom course may for instance be a degree field or root node.
+    /// Marks weather a course represents a degree.
     /// 
-    /// NOTE: Simplification, if a course is a pre-requisite to the phantom degree course it is implicitly required
+    /// NOTE: Simplification, if a course is a pre-requisite to the degree course it is implicitly required
     /// </summary>
-    public bool IsPhantom { get; }
+    public bool IsDegree { get; }
     /// <summary>
     /// The co-requisites of the course.
     /// These are courses that must be taken in the same term or prior to the course.
@@ -78,32 +77,32 @@ namespace CourseGraph {
     /// <param name="coRequisites">The coRequisite course names.</param>
     /// <param name="preRequisites">The preRequisite course names.</param>
     /// <param name="timeTableInfo">The timeTableInfo.</param>
-    /// <param name="isPhantom">Weather the course is real or not.</param>
-    /// <exception cref="ArgumentException">If a phantom course has timetable info.</exception>
-    /// <exception cref="ArgumentException">If a phantom course has coRequisite info.</exception>
-    /// <exception cref="ArgumentException">If a non-phantom course does not have time table info .</exception>
+    /// <param name="isDegree">Weather the course is real or not.</param>
+    /// <exception cref="ArgumentException">If a degree course has timetable info.</exception>
+    /// <exception cref="ArgumentException">If a degree course has coRequisite info.</exception>
+    /// <exception cref="ArgumentException">If a non-degree course does not have time table info .</exception>
     /// <exception cref="ArgumentException">If any of the time slots have invalid times.</exception>
     public Course(
       string name,
       List<string> coRequisites,
       List<string> preRequisites,
       TimeTableInfo[] timeTableInfos,
-      bool isPhantom = false
+      bool isDegree = false
     ) {
       this.Name = name;
-      this.IsPhantom = isPhantom;
+      this.IsDegree = isDegree;
       this.CoRequisites = coRequisites;
       this.PreRequisites = preRequisites;
       this.TimeTableInfos = timeTableInfos;
       // Validation
-      if (isPhantom) {
+      if (isDegree) {
         if (timeTableInfos.Length > 0)
-          throw new ArgumentException("Phantom courses cannot have timetable info");
+          throw new ArgumentException("Degree courses cannot have timetable info");
         if (coRequisites.Count > 0)
-          throw new ArgumentException("Phantom courses cannot have co-requisites");
+          throw new ArgumentException("Degree courses cannot have co-requisites");
       } else {
         if (timeTableInfos.Length == 0)
-          throw new ArgumentException("Non phantom courses must have timetable info");
+          throw new ArgumentException("Non Degree courses must have timetable info");
       }
       foreach (var offering in timeTableInfos) {
         foreach (var timeSlot in offering.TimeSlots) {

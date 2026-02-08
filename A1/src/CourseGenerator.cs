@@ -219,7 +219,7 @@ namespace CourseGenerator {
           coRequisites: new List<string>(),
           preRequisites: kvp.Value,
           timeTableInfos: Array.Empty<TimeTableInfo>(),
-          isPhantom: true
+          isDegree: true
         );
         degrees.Add(degree);
       }
