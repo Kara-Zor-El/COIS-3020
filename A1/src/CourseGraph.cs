@@ -101,6 +101,8 @@ namespace CourseGraph {
     public int TermMin { get; set; }
     /// <summary>Maximum term this course can be taken in (based on the degree).</summary>
     public int TermMax { get; set; }
+    /// <summary>Cost heuristic for scheduling: depth from root (prereq = 1, coreq = 0.05).</summary>
+    public double Cost { get; set; }
 
     /// <summary>
     /// Initializes a new instance of the CourseVertex class with the specified course value.
@@ -379,12 +381,14 @@ namespace CourseGraph {
         vert.Visited = false;
       }
 
+      // Compute cost heuristic (depth: prereq = 1, coreq = 0.05) for schedule ordering
+      this.ComputeCostHeuristic(degreeVertex);
+
       // -------------- Greedy Schedule --------------
       var schedule = new Schedule.Schedule(degree: degreeCourse, maxTermSize: termSize);
-      // The highest priority placement is going to be the course with the highest T_max,
-      // as this course has the longest pre-requisite chain (and likely defines how many terms).
+      // Order by cost heuristic (ascending so stack pops highest cost / deepest first).
       // First we schedule the required courses
-      var coursesToPlace = new Stack<CourseVertex>(degreeVertex.Edges.Select(e => e.AdjVertex).OrderBy(c => c.TermMax));
+      var coursesToPlace = new Stack<CourseVertex>(degreeVertex.Edges.Select(e => e.AdjVertex).OrderBy(c => c.Cost));
       while (coursesToPlace.Count > 0) {
         var courseToPlace = coursesToPlace.Pop();
         if (courseToPlace.Visited) continue; // We've already placed this course
@@ -425,18 +429,19 @@ namespace CourseGraph {
     ) {
       // The course was already placed
       if (courseVertex.Visited) return;
-      // Determine earliest course placement based off terms of all pre-req and co-req
-      var minCoreq = courseVertex.Edges
-                      .Where(e => e.Relation == CourseRelation.Coreq)
-                      .Select(e => schedule.GetCourseTerm(e.AdjVertex.Value))
-                      .DefaultIfEmpty(0)
-                      .Max();
-      var minPrereq = courseVertex.Edges
-                      .Where(e => e.Relation == CourseRelation.Prereq)
-                      .Select(e => schedule.GetCourseTerm(e.AdjVertex.Value))
-                      .DefaultIfEmpty(0)
-                      .Max() + 1;
-      var courseMinimumTerm = Math.Max(minCoreq, minPrereq) - 1;
+      // Determine earliest course placement based off terms of all pre-req and co-req.
+      // Prereq in term T => this course must be in term T+1 or later. Coreq can be same term.
+      var prereqTerms = courseVertex.Edges
+          .Where(e => e.Relation == CourseRelation.Prereq)
+          .Select(e => schedule.GetCourseTerm(e.AdjVertex.Value))
+          .ToList();
+      var coreqTerms = courseVertex.Edges
+          .Where(e => e.Relation == CourseRelation.Coreq)
+          .Select(e => schedule.GetCourseTerm(e.AdjVertex.Value))
+          .ToList();
+      int prereqBound = prereqTerms.Count > 0 ? prereqTerms.Max() + 1 : 0;
+      int coreqBound = coreqTerms.Count > 0 ? coreqTerms.Max() : 0;
+      int courseMinimumTerm = Math.Max(prereqBound, coreqBound);
       // Place the actual course
       Course course = courseVertex.Value;
       for (int i = courseMinimumTerm; i < courseVertex.TermMax; i++) {
@@ -554,6 +559,31 @@ namespace CourseGraph {
             if (edge.Relation == CourseRelation.Prereq) nextDepth++;
             stack.Push((edge.AdjVertex, nextDepth, false));
           }
+        }
+      }
+    }
+
+    /// <summary>
+    /// Computes the cost heuristic for each vertex reachable from the degree root.
+    /// Cost = longest path from root with prereq edges weighted 1 and coreq edges 0.05.
+    /// Higher cost = deeper in the dependency chain, so we schedule those first (prereqs before dependents).
+    /// Time complexity: O(v + e)
+    /// </summary>
+    /// <param name="degreeVertex">The phantom vertex for the degree (root).</param>
+    private void ComputeCostHeuristic(CourseVertex degreeVertex) {
+      // this is not 0 but slightly above so that we schedule a course that has a pre-req with a higher priority
+      // before a course that has a coreq with a lower priority.
+      const double coreqCost = 0.05;
+      foreach (var vertex in this.Vertices) vertex.Cost = 0;
+      degreeVertex.Cost = 0;
+
+      var order = this.TopologicalSort(degreeVertex).Reverse().ToList();
+      foreach (var vertex in order) {
+        foreach (var edge in vertex.Edges) {
+          var adjacentVertex = edge.AdjVertex;
+          double weight = edge.Relation == CourseRelation.Prereq ? 1.0 : coreqCost;
+          double newCost = vertex.Cost + weight;
+          if (newCost > adjacentVertex.Cost) adjacentVertex.Cost = newCost;
         }
       }
     }
