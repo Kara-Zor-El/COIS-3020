@@ -148,6 +148,10 @@ namespace CourseGraph {
     /// before courses with the same number of pre-requisites but no corequisites.
     /// </summary>
     private static readonly double CoreqWeight = 0.05;
+    /// <summary>
+    /// The weight of a pre-requisite when doing the cost heuristic.
+    /// </summary>
+    private static readonly double PrereqWeight = 1.0;
 
     /// <summary>
     /// Worst case time complexity: O(v)
@@ -492,12 +496,8 @@ namespace CourseGraph {
     }
 
     /// <summary>
-    /// Computes the cost heuristic for each vertex reachable from the degree root.
-    /// Cost = longest path from root with pre-req weighted higher than coreq.
-    /// Then intention of this is so that courses with the same number of pre-requisites 
-    /// but no different number of corequisites are scheduled taking that into account.
-    /// Higher cost = further along the dependency chain (more prereqs), so earliest schedulable term is later (more constrained).
-    /// Time complexity: O(v + e)
+    /// Cost = longest path from root
+    /// Time complexity O(V+E)
     /// </summary>
     /// <param name="degreeVertex">The phantom vertex for the degree (root).</param>
     private void ComputeCostHeuristic(CourseVertex degreeVertex) {
@@ -508,7 +508,7 @@ namespace CourseGraph {
       foreach (var vertex in order) {
         foreach (var edge in vertex.Edges) {
           var prereqVertex = edge.AdjVertex;
-          double weight = edge.Relation == CourseRelation.Prereq ? 1.0 : CourseGraph.CoreqWeight;
+          double weight = edge.Relation == CourseRelation.Prereq ? CourseGraph.PrereqWeight : CourseGraph.CoreqWeight;
           double newCost = prereqVertex.Cost + weight;
           if (newCost > vertex.Cost) vertex.Cost = newCost;
         }
