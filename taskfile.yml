@@ -12,8 +12,14 @@ tasks:
       - dotnet build A1
       - dotnet run --project A1 -- ./courseData.json -o ./schedule.md --degree COIS --credit_count=40 --term_size=5 --log --graph_output ./courseGraph.md --debug {{.CLI_ARGS}}
   format:
-   desc: Formats the application
-   cmd: dotnet format A1
+    desc: Formats the application
+    cmd: dotnet format 3020.sln
+  build:
+    desc: Builds the solution
+    cmd: dotnet build 3020.sln
+  test:
+    desc: Runs tests
+    cmd: dotnet test 3020.sln {{.CLI_ARGS}}
   release:
     desc: Builds and runs the application in release mode
     cmds:
