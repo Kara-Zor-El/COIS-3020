@@ -31,8 +31,40 @@ namespace CourseGraph {
     /// <returns>The degree if it exists, otherwise null</returns>
 #nullable enable
     public Course? GetDegreeByName(string name) {
-      return this.Degrees.FirstOrDefault(c => c.Name == name);
+      return this.Degrees?.FirstOrDefault(c => c.Name == name);
     }
+
+    /// <summary>
+    /// Gets a degree by subject code (e.g. "COIS") or by full degree name.
+    /// Tries exact name first, then maps common subject codes to degree names (e.g. COIS -> Bachelor of Computer Science).
+    /// Time complexity: O(n)
+    /// </summary>
+    /// <param name="nameOrSubject">Degree name or subject code (e.g. "COIS", "Bachelor of Computer Science")</param>
+    /// <returns>The degree if it exists, otherwise null</returns>
+#nullable enable
+    public Course? GetDegreeByNameOrSubject(string nameOrSubject) {
+      var byName = GetDegreeByName(nameOrSubject);
+      if (byName != null) return byName;
+      var degreeName = SubjectToDegreeName(nameOrSubject);
+      return degreeName != null ? GetDegreeByName(degreeName) : null;
+    }
+
+    private static string? SubjectToDegreeName(string? code) => code?.Trim().ToUpperInvariant() switch {
+      "COIS" => "Bachelor of Computer Science",
+      "ADMN" => "Bachelor of Business Admin",
+      "PSYC" => "Bachelor of Science (Psych)",
+      "BIOL" => "Bachelor of Science (Biology)",
+      "CHEM" => "Bachelor of Science (Chem)",
+      "PHYS" => "Bachelor of Science (Physics)",
+      "MATH" => "Bachelor of Science (Math)",
+      "HIST" => "Bachelor of Arts (History)",
+      "ENGL" => "Bachelor of Arts (English)",
+      "SOCI" => "Bachelor of Arts (Sociology)",
+      "ANTH" => "Bachelor of Arts (Anthro)",
+      "PHIL" => "Bachelor of Arts (Phil)",
+      "ECON" => "Bachelor of Economics",
+      _ => null
+    };
 
     /// <summary>
     /// Gets a course by name from the course data.

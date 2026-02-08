@@ -107,11 +107,11 @@ namespace Schedule {
     /// <returns>True if the two time table infos have any overlapping time slots, false otherwise.</returns>
     public bool DoTimeSlotsOverlap(TimeTableInfo timeTableInfo1, TimeTableInfo timeTableInfo2) {
       foreach (var timeSlot1 in timeTableInfo1.TimeSlots) {
-        foreach (var timeSlot2 in timeTableInfo2.TimeSlots) {
-          if (timeSlot1.Day == timeSlot2.Day) {
-            // Check for time overlap
-            if (timeSlot1.Start < timeSlot2.End && timeSlot2.Start < timeSlot1.End) {
-              return true;
+        foreach (var t1 in timeSlot1.Times) {
+          foreach (var timeSlot2 in timeTableInfo2.TimeSlots) {
+            foreach (var t2 in timeSlot2.Times) {
+              if (t1.Day == t2.Day && t1.Start < t2.End && t2.Start < t1.End)
+                return true;
             }
           }
         }
@@ -213,13 +213,12 @@ namespace Schedule {
             var slot = this.TermData[termIndex][slotIndex];
             if (slot == null) break; // Skip empty slots (Courses are added sequentially)
             var (course, timeTableInfo) = slot.Value;
-            // Make a list of all the time slots that are at the current time.
-            // NOTE: We could let the user input bias's which we could use to further select these
-            var overlappingTimeSlots = timeTableInfo[0].TimeSlots.Where(ts => ts.Start <= time && ts.End > time);
-            if (!overlappingTimeSlots.Any()) continue;
-            foreach (var timeSlot in overlappingTimeSlots) {
-              // Mark the corresponding day in the schedule row as occupied
-              scheduleRow[(int)timeSlot.Day] = (course, slotIndex);
+            // Find all time occurrences that overlap the current time
+            foreach (var timeSlot in timeTableInfo[0].TimeSlots) {
+              foreach (var t in timeSlot.Times) {
+                if (t.Start <= time && t.End > time)
+                  scheduleRow[(int)t.Day] = (course, slotIndex);
+              }
             }
           }
           // Add the row entry

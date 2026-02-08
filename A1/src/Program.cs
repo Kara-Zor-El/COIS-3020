@@ -9,7 +9,7 @@ var jsonString = File.ReadAllText("./courseData.json");
 var loadedCourseData = JsonSerializer.Deserialize<CourseData>(jsonString);
 var courseGraph = CourseGraph.CourseGraph.FromCourseData(loadedCourseData);
 // Test Scheduling
-var coisDegree = loadedCourseData.GetDegreeByName("COIS");
+var coisDegree = loadedCourseData.GetDegreeByNameOrSubject("COIS");
 var sw = Stopwatch.StartNew();
 var schedule = courseGraph.Schedule(termSize: 5, creditCount: Math.Min(40, loadedCourseData.Courses.Count), degreeCourse: coisDegree);
 sw.Stop();

@@ -12,12 +12,15 @@ namespace CourseGraph {
   }
 
   /// <summary>
-  /// Represents a time slot for a course. Each time slot has a day of the week, start time, and end time.
+  /// Represents a single time occurrence (one day, start time, end time).
   /// </summary>
-  /// <param name="Day">The day of the week the time slot is scheduled for.</param>
-  /// <param name="Start">The start time of the time slot.</param>
-  /// <param name="End">The end time of the time slot.</param>
-  public record TimeSlot(DayOfWeek Day, TimeOnly Start, TimeOnly End);
+  public record TimeOccurrence(DayOfWeek Day, TimeOnly Start, TimeOnly End);
+
+  /// <summary>
+  /// Represents a time slot for a course. Each time slot can have multiple times (e.g. Mon/Wed/Fri 9-10).
+  /// </summary>
+  /// <param name="Times">The list of time occurrences for this slot.</param>
+  public record TimeSlot(TimeOccurrence[] Times);
   /// <summary>
   /// Represents the timetable information about a course.
   /// </summary>
@@ -35,9 +38,8 @@ namespace CourseGraph {
     /// </summary>
     public Term OfferedTerm { get; init; }
     /// <summary>
-    /// The time slots the course is offered in. 
-    /// Each tuple represents a single time slot with the:
-    /// day of the week, start time, and end time.
+    /// The time slots the course is offered in.
+    /// Each time slot can have multiple times (e.g. recurring Mon/Wed/Fri).
     /// </summary>
     public TimeSlot[] TimeSlots { get; init; }
   }
@@ -107,12 +109,15 @@ namespace CourseGraph {
       }
       foreach (var offering in timeTableInfos) {
         foreach (var timeSlot in offering.TimeSlots) {
-          if (timeSlot.Start >= timeSlot.End)
-            throw new ArgumentException("Course time slot start time must be before end time");
-          if (timeSlot.Start < TimeTableInfo.EarliestTime || timeSlot.End > TimeTableInfo.LatestTime)
-            throw new ArgumentException("Course time slots must be between 8:00 and 22:00");
-          if (timeSlot.Day == DayOfWeek.Sunday || timeSlot.Day == DayOfWeek.Saturday)
-            throw new ArgumentException("Courses cannot appear on the weekend");
+          if (timeSlot.Times == null) throw new ArgumentException("TimeSlot.Times cannot be null");
+          foreach (var t in timeSlot.Times) {
+            if (t.Start >= t.End)
+              throw new ArgumentException("Course time slot start time must be before end time");
+            if (t.Start < TimeTableInfo.EarliestTime || t.End > TimeTableInfo.LatestTime)
+              throw new ArgumentException("Course time slots must be between 8:00 and 22:00");
+            if (t.Day == DayOfWeek.Sunday || t.Day == DayOfWeek.Saturday)
+              throw new ArgumentException("Courses cannot appear on the weekend");
+          }
         }
       }
     }
