@@ -30,7 +30,7 @@ namespace Schedule {
     /// A matrix of every term and every bucket.
     /// </summary>
 #nullable enable
-    private List<(Course course, TimeTableInfo timeTableInfo)?[]> TermData;
+    private List<(Course course, TimeTableInfo[] timeTableInfo)?[]> TermData;
     /// <summary>
     /// A mapping of course names to scheduled term.
     /// This allows us to quickly lookup if a course is scheduled or not.
@@ -48,7 +48,7 @@ namespace Schedule {
       this.Degree = degree;
       this.MaxTermSize = maxTermSize;
       this.StartingTerm = startingTerm;
-      this.TermData = new List<(Course course, TimeTableInfo timeTableInfo)?[]>();
+      this.TermData = new List<(Course course, TimeTableInfo[] timeTableInfo)?[]>();
       this.ScheduledCourses = new Dictionary<string, int>();
       this.CourseCount = 0;
     }
@@ -59,8 +59,6 @@ namespace Schedule {
 
     /// <summary>
     /// Adds a course to the schedule in the desired term.
-    /// 
-    /// Time Complexity: O(TermCount * MaxTermSize) in the worst case (when all terms are full and we have to check for overlaps with every course), but typically much better when there are empty slots.
     /// </summary>
     /// <param name="course">The course to add to the schedule.</param>
     /// <param name="term">The term to add the course to</param>
@@ -69,36 +67,31 @@ namespace Schedule {
     /// <exception cref="ArgumentException">If the given term is full.</exception>
     /// <exception cref="ArgumentException">If the course is not offered in the given term.</exception>
     /// <exception cref="ArgumentException">If the course overlaps with another course in the given term.</exception>
-    public void AddCourse(Course course, TimeTableInfo timeTableInfo, int term) {
-      // TODO: Lookup available timeTableInfo from course rather than take it in as a parameter
+    public void AddCourse(Course course, int term) {
       // Input Validation
       if (course.IsPhantom)
         throw new ArgumentException("Cannot add a phantom course to a schedule");
       if (term < 0)
         throw new ArgumentException("Cannot add a course outside of the schedule");
       // Initial TimeSlot Validation (check if the course is offered in the term)
-      Term courseTermType = this.GetTermType(term);
-      if (timeTableInfo.OfferedTerm != courseTermType)
+      Term termType = this.GetTermType(term);
+      var possibleTimeSlots = course.TimeTableInfos.Where(t => t.OfferedTerm == termType);
+      if (!possibleTimeSlots.Any())
         throw new ArgumentException($"Course {course.Name} is not offered in term {term}");
+      if (this.DoesCourseHaveValidTimeSlot(course, possibleTimeSlots.ToArray(), term).Count <= 0)
+        throw new ArgumentException($"Course {course.Name}, can't be scheduled do to overlaps in term {term}");
       // Grow the term table to fit
       while (this.TermData.Count <= term) {
-        this.TermData.Add(new (Course course, TimeTableInfo timeTableInfo)?[this.MaxTermSize]);
+        this.TermData.Add(new (Course course, TimeTableInfo[] timeTableInfo)?[this.MaxTermSize]);
       }
       // Try to add the course to the first available slot in the term
       for (int slotIndex = 0; slotIndex < this.MaxTermSize; slotIndex++) {
         var currentSlot = this.TermData[term][slotIndex];
-        if (currentSlot != null) {
-          // TODO: Maybe skip some of these expensive checks given the caller did them.
-          if (this.DoTimeSlotsOverlap(currentSlot.Value.timeTableInfo, timeTableInfo)) {
-            throw new ArgumentException($"Course {course.Name} overlaps with course {currentSlot.Value.course.Name} in term {term}");
-          }
-          continue;
-        } else {
-          this.TermData[term][slotIndex] = (course, timeTableInfo);
-          this.ScheduledCourses.Add(course.Name, term);
-          this.CourseCount++;
-          return;
-        }
+        if (currentSlot != null) continue;
+        this.TermData[term][slotIndex] = (course, possibleTimeSlots.ToArray());
+        this.ScheduledCourses.Add(course.Name, term);
+        this.CourseCount++;
+        return;
       }
       throw new ArgumentException("Cannot add a course to a full term");
     }
@@ -132,17 +125,18 @@ namespace Schedule {
     /// <param name="timeTableInfo">The time slot to check against</param>
     /// <param name="term">which term we are checking in</param>
     /// <returns></returns>
-    public bool IsTimeSlotTaken(TimeTableInfo? timeTableInfo, int term) {
-      if (timeTableInfo == null) return true;
-      if (this.TermData.Count <= term) return false;
-      for (int slotIndex = 0; slotIndex < this.MaxTermSize; slotIndex++) {
-        var currentSlot = this.TermData[term][slotIndex];
-        if (currentSlot == null) break; // We've hit the end of the term
-        if (this.DoTimeSlotsOverlap(currentSlot.Value.timeTableInfo, timeTableInfo)) {
-          return true;
-        }
+    public List<TimeTableInfo> DoesCourseHaveValidTimeSlot(Course course, TimeTableInfo[] timeTableInfo, int term) {
+      var possibleTimeSlots = new List<TimeTableInfo>(timeTableInfo); // Clone the array
+      if (this.TermData.Count <= term) return possibleTimeSlots;
+      // Check if timeTableInfo has at least one item where the time doesn't overlap with anything else in this.TermData[term]
+      for (int slotIndex = 0; slotIndex < this.MaxTermSize && possibleTimeSlots.Count > 0; slotIndex++) {
+        var slotData = this.TermData[term][slotIndex];
+        if (slotData == null) break;
+        var (checkCourse, checkTimeSlots) = slotData.Value;
+        if (checkCourse == course) continue;
+        possibleTimeSlots.RemoveAll(t => checkTimeSlots.All(c => this.DoTimeSlotsOverlap(c, t)));
       }
-      return false;
+      return possibleTimeSlots;
     }
 
     /// <summary>
@@ -183,12 +177,20 @@ namespace Schedule {
     /// Time Complexity: O(TermCount * MaxTermSize)
     /// </summary>
     private Table[] GenerateSchedule() {
+      // Generate the table
       var tables = new Table[this.TermData.Count];
       // Helper function to create a colored markup for occupied cells
       var colors = new[] { Color.Blue, Color.Red, Color.Yellow, Color.Green, Color.Violet };
       Markup UsedCell(string name, int slot) => new Markup(name, new Style(foreground: null, background: colors[slot % colors.Length]));
       // Print a schedule table for each term
       for (int termIndex = 0; termIndex < this.TermData.Count; termIndex++) {
+        // Filter out any overlapping timeslots
+        for (int slotIndex = 0; slotIndex < this.TermData[termIndex].Length; slotIndex++) {
+          var slot = this.TermData[termIndex][slotIndex];
+          if (slot == null) break; // Skip empty slots (Courses are added sequentially)
+          var (course, timeTableInfo) = slot.Value;
+          this.TermData[termIndex][slotIndex] = (course, this.DoesCourseHaveValidTimeSlot(course, timeTableInfo, termIndex).ToArray());
+        }
         // Determine which term we are in based on the starting term and the term index
         Term currentTerm = this.GetTermType(termIndex);
         // Build the initial table with time slots
@@ -212,7 +214,8 @@ namespace Schedule {
             if (slot == null) break; // Skip empty slots (Courses are added sequentially)
             var (course, timeTableInfo) = slot.Value;
             // Make a list of all the time slots that are at the current time.
-            var overlappingTimeSlots = timeTableInfo.TimeSlots.Where(ts => ts.Start <= time && ts.End > time);
+            // NOTE: We could let the user input bias's which we could use to further select these
+            var overlappingTimeSlots = timeTableInfo[0].TimeSlots.Where(ts => ts.Start <= time && ts.End > time);
             if (!overlappingTimeSlots.Any()) continue;
             foreach (var timeSlot in overlappingTimeSlots) {
               // Mark the corresponding day in the schedule row as occupied
