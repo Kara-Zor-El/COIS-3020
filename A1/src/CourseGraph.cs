@@ -267,10 +267,10 @@ namespace CourseGraph {
     /// </summary>
     /// <param name="course">The course you want to update</param>
     /// <param name="degree">The degree to toggle requirement</param>
-    /// <exception cref="ArgumentException">Degree was not a phantom course.</exception>
+    /// <exception cref="ArgumentException">Degree was not a degree course.</exception>
     public void UpdateVertex(Course course, Course degree) {
-      if (!degree.IsPhantom) {
-        throw new ArgumentException("A degree is expected to be a phantom course");
+      if (!degree.IsDegree) {
+        throw new ArgumentException("Expected a degree course");
       }
       bool foundLink = false;
       int degreeIndex = this.FindVertexIndex(degree);
@@ -278,7 +278,7 @@ namespace CourseGraph {
       if (degreeIndex >= 0) {
         foreach (var edge in degreeVertex.Edges) {
           if (edge.AdjVertex?.Value?.Equals(course) ?? false) { // Incident edge
-            // A phantom node indicates that it is a node representing a degree as such it is a root required node.
+            // A degree node is a root required node.
             degreeVertex.Edges.Remove(edge); // Remove the link
             // Patch the course data
             degreeVertex.Value.CoRequisites.Remove(course.Name);
@@ -301,7 +301,7 @@ namespace CourseGraph {
     /// </summary>
     /// <param name="termSize">Number of courses per term</param>
     /// <param name="creditCount">Total number of credits required</param>
-    /// <param name="degreeCourse">The phantom course representing the degree</param>
+    /// <param name="degreeCourse">The course representing the degree</param>
     /// <exception cref="ArgumentException">
     /// Thrown when the <paramref name="degreeCourse"/> is not found in graph
     /// or is not a root node (has incommming edges).
@@ -397,7 +397,7 @@ namespace CourseGraph {
       }
 
       // Begin placing filler courses (Non required courses used to hit creditCount)
-      var fillerCourses = new Stack<CourseVertex>(this.Vertices.Where(v => !v.Visited && !v.Value.IsPhantom).OrderBy(v => v.TermMax));
+      var fillerCourses = new Stack<CourseVertex>(this.Vertices.Where(v => !v.Visited && !v.Value.IsDegree).OrderBy(v => v.TermMax));
       while (fillerCourses.Count > 0 && schedule.CourseCount < creditCount) {
         var fillerCourse = fillerCourses.Pop();
         if (fillerCourse.Visited) continue; // We've already placed this course
@@ -500,7 +500,7 @@ namespace CourseGraph {
     /// </summary>
     /// <param name="root">The course to start from</param>
     /// <param name="creditCount">Total number of credits required</param>
-    /// <param name="isDegreeCourse">Whether this root is the degree course (phantom course)</param>
+    /// <param name="isDegreeCourse">Whether this root is a degree course</param>
     private void ComputeTermBoundsForDegree(CourseVertex root, int creditCount, bool isDegreeCourse) {
       // TODO: Determine if there is a simpler / faster way we can compute `T_max`
       // Stack stores: (vertex, depth, isReturning (returning from children))
@@ -513,7 +513,7 @@ namespace CourseGraph {
         var (vertex, depth, isReturning) = stack.Pop();
 
         if (isReturning) {
-          if (!vertex.Value.IsPhantom) {
+          if (!vertex.Value.IsDegree) {
             int earliestTerm = 1;
             foreach (var edge in vertex.Edges) {
               if (edge.Relation == CourseRelation.Prereq) {
@@ -527,7 +527,7 @@ namespace CourseGraph {
             vertex.TermMin = Math.Max(vertex.TermMin, earliestTerm);
           }
 
-          if (!vertex.Value.IsPhantom) {
+          if (!vertex.Value.IsDegree) {
             // If every course happens on a tuesday at 2pm in the fall we would need a separate term per credit
             int newTMax = Enum.GetValues(typeof(Term)).Length * creditCount - depth;
 
@@ -564,13 +564,13 @@ namespace CourseGraph {
     /// </summary>
     /// <returns>All degrees and courses from the graph.</returns>
     public CourseData GetCourseData() {
-      // Collect all phantom nodes and count them as degree
-      // Collect all non-phantom nodes and count them as course
+      // Collect all degree nodes and count them as degree
+      // Collect all non-degree nodes and count them as course
       var degrees = new List<Course>();
       var courses = new List<Course>();
 
       foreach (var vertex in this.Vertices) {
-        if (vertex.Value.IsPhantom) {
+        if (vertex.Value.IsDegree) {
           degrees.Add(vertex.Value);
         } else {
           courses.Add(vertex.Value);
@@ -676,7 +676,7 @@ namespace CourseGraph {
       }
 
       foreach (var vertex in this.Vertices) {
-        if (vertex.Value.IsPhantom) {
+        if (vertex.Value.IsDegree) {
           sb.AppendLine($"  style n{vertex.Value.Name} stroke:#000,stroke-width:4px");
           sb.AppendLine($"  style n{vertex.Value.Name} stroke-dasharray: 10,5");
         }

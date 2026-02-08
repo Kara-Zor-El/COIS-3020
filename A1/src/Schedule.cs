@@ -62,15 +62,15 @@ namespace Schedule {
     /// </summary>
     /// <param name="course">The course to add to the schedule.</param>
     /// <param name="term">The term to add the course to</param>
-    /// <exception cref="ArgumentException">If a phantom course is being added</exception>
+    /// <exception cref="ArgumentException">If a degree course is being added</exception>
     /// <exception cref="ArgumentException">If a course is being added to a non existing term</exception>
     /// <exception cref="ArgumentException">If the given term is full.</exception>
     /// <exception cref="ArgumentException">If the course is not offered in the given term.</exception>
     /// <exception cref="ArgumentException">If the course overlaps with another course in the given term.</exception>
     public void AddCourse(Course course, int term) {
       // Input Validation
-      if (course.IsPhantom)
-        throw new ArgumentException("Cannot add a phantom course to a schedule");
+      if (course.IsDegree)
+        throw new ArgumentException("Cannot add a degree course to a schedule");
       if (term < 0)
         throw new ArgumentException("Cannot add a course outside of the schedule");
       // Initial TimeSlot Validation (check if the course is offered in the term)

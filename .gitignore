@@ -1,6 +1,11 @@
+# Mac
 .DS_Store
+
+# cSharp
 **/obj/
 **/bin/
+A1Tests/TestResults/
+*.received.*
 
 # Application Local Testing Files
 courseGraph.md
