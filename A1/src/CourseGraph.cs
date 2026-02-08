@@ -304,20 +304,56 @@ namespace CourseGraph {
     /// or is not a root node (has incommming edges).
     /// </exception>
     public void Schedule(int termSize, int creditCount, Course degreeCourse) {
+      /*
+       * NOTE:
+       *   The problem defined by the assignment is to find a schedule assuming there are no 
+       *   overlapping timeSlots or term constraints. This is a much easier problem than the 
+       *   general scheduling problem, which is NP-hard (https://en.wikipedia.org/wiki/NP-hardness),
+       *   in other words there is no known polynomial time algorithm to solve the general scheduling problem.
+       *   Instead this sort of problem is often solve using a constraint based approach where you encode all
+       *   the constraints and then use a constraint solver to find a solution that satisfies all the constraints.
+       *
+       *   As we are avoiding libraries for the direct implementation of the problem and don't have access to a 
+       *   constraint solver, we decided to use combined constraint and greedy placement approach, this is guaranteed to
+       *   find the optimal solution to the problem defined by the assignment, but may not find the most optimal solution 
+       *   to the general scheduling problem.
+       *
+       *   The way this algorithm works is we begin by computing `T_min` and `T_max` for each course:
+       *     - `T_min` is defined at the minimum term that a course can be taken in, 
+       *               this is computed by figuring out the longest path from to a leaf node.
+       *     - `T_max` is defined as the maximum term that a course can be taken in based on the degree requirements,
+       *               this is computed as `TermTypeCount*CreditCount - depth` where depth is the depth of the 
+       *               course in the longest path from a root node. If the course is part of the given degree,
+       *               depth is computed as the longest path form the degree node.
+       *   These constraints tell us optimal placement restrictions for each course however we may need to shift courses around.
+       *   This could be due to a course completely overlapping with another course or to many courses in one term.
+       *
+       *   Interesting Paper: https://www.sciencedirect.com/science/article/abs/pii/S0360835221007592#s0090
+       *   While we didn't take inspiration from this paper as we already figured out an approach prior to reading it, 
+       *   this paper describes how to solve the problem using a completely constraint based approach and also describes
+       *   some additional constraints that could be used to make our scheduler more optimal and quicker.
+       *
+       *   A major strength of the approach we took is that additional constraints can be added and used as weights or filters
+       *   while greedy scheduling to find more optimal or find tuned solutions, and we can greedy schedule things that would 
+       *   make constraints more complex. For example if we wanted to factor in travel time constraints wouldn't adjust well 
+       *   but we could just buffer our times in greedy scheduling.
+       *
+       *   Once we have these constraints, we begin a greedy scheduling approach,
+       * TODO:
+       */
+      // -------------- Compute Constraints --------------
       // Find all root vertices (vertices with no incoming edges)
       List<CourseVertex> roots = new List<CourseVertex>(this.Vertices);
-
       foreach (var vert in this.Vertices) {
-        // Clear TermMin and TermMax for all vertices
-        // and set all vertices as unvisited
+        // Clear T_min, T_max, and visited (we are going to recompute them)
         vert.TermMin = 0;
         vert.TermMax = 0;
         vert.Visited = false;
         foreach (var edge in vert.Edges) {
+          // If the root has an incoming edge, it isn't a root
           roots.RemoveAll(r => r.Value.Equals(edge.AdjVertex.Value));
         }
       }
-
       // Make sure degreeCourse is in roots
       int degreeIdx = this.FindVertexIndex(degreeCourse);
       if (degreeIdx < 0) throw new ArgumentException("Degree course must be in the graph");
@@ -328,25 +364,82 @@ namespace CourseGraph {
         roots.Remove(degreeVertex);
         roots.Add(degreeVertex);
       }
-
       // Compute TermMin and TermMax for each root
       foreach (var root in roots) {
-        this.ComputeTermBoundsForDegree(root, termSize, creditCount, root == degreeVertex);
+        this.ComputeTermBoundsForDegree(root, creditCount, root == degreeVertex);
       }
+
+      // Reset visited
+      foreach (var vert in this.Vertices) {
+        vert.Visited = false;
+      }
+
+      // -------------- Greedy Schedule --------------
+      var scheduleData = new List<(Course course, TimeTableInfo[] timeTableInfos)[]> {
+        new (Course course, TimeTableInfo[] timeTableInfos)[termSize] // We always have at least 1 term
+      };
+      // The highest priority placement is going to be the course with the highest T_max,
+      // as this course has the longest pre-requisite chain (and likely defines how many terms).
+      // First we schedule the required courses
+      var coursesToPlace = new Stack<CourseVertex>(degreeVertex.Edges.Select(e => e.AdjVertex).OrderBy(c => c.TermMax));
+      while (coursesToPlace.Count > 0) {
+        Console.WriteLine("New Iteration");
+        var courseToPlace = coursesToPlace.Pop();
+        if (courseToPlace.Visited) continue; // We've already placed this course
+        foreach (var vert in this.TopologicalSort(courseToPlace)) {
+          if (vert.Visited) continue; // We've already placed this course
+          Console.WriteLine($"Placing {vert.Value.Name} with T_min {vert.TermMin} and T_max {vert.TermMax}");
+          vert.Visited = true;
+        }
+      }
+    }
+
+    /// <summary>
+    /// Provides nodes back in topological order (a node is always after its prereqs and coreqs).
+    /// 
+    /// https://www.geeksforgeeks.org/dsa/topological-sorting-indegree-based-solution/
+    /// </summary>
+    private IEnumerable<CourseVertex> TopologicalSort(CourseVertex root) {
+      var visited = new HashSet<CourseVertex>();
+      var tempMark = new HashSet<CourseVertex>();
+
+      foreach (var v in this.Visit(root, visited, tempMark))
+        yield return v;
+    }
+
+    private IEnumerable<CourseVertex> Visit(CourseVertex vertex, HashSet<CourseVertex> visited, HashSet<CourseVertex> tempMark) {
+      if (visited.Contains(vertex))
+        yield break;
+
+      if (tempMark.Contains(vertex)) // NOTE: This is impossible because of constraints on AddEdge
+        throw new InvalidOperationException("Graph is not a DAG! Cycle detected.");
+
+      tempMark.Add(vertex);
+
+      foreach (var edge in vertex.Edges) {
+        if (edge?.AdjVertex != null) {
+          foreach (var v in this.Visit(edge.AdjVertex, visited, tempMark))
+            yield return v;
+        }
+      }
+
+      tempMark.Remove(vertex);
+      visited.Add(vertex);
+
+      yield return vertex; // post-order yield
     }
 
     /// <summary>
     /// DFS to compute TermMin and TermMax for courses of a given root.
     /// </summary>
     /// <param name="root">The course to start from</param>
-    /// <param name="termSize">Number of courses per term</param>
     /// <param name="creditCount">Total number of credits required</param>
     /// <param name="isDegreeCourse">Whether this root is the degree course (phantom course)</param>
-    private void ComputeTermBoundsForDegree(CourseVertex root, int termSize, int creditCount, bool isDegreeCourse) {
+    private void ComputeTermBoundsForDegree(CourseVertex root, int creditCount, bool isDegreeCourse) {
       // Stack stores: (vertex, depth, isReturning (returning from children))
-      // TODO: Heavily test this
       var stack = new Stack<(CourseVertex vertex, int depth, bool isReturning)>();
-
+      // TODO: Heavily test this
+      // TODO: better documentation on this
       stack.Push((root, 0, false));
 
       while (stack.Count > 0) {
@@ -368,8 +461,8 @@ namespace CourseGraph {
           }
 
           if (!vertex.Value.IsPhantom) {
-            // Compute TermMax: TermMax = termSize * creditCount - depth
-            int newTMax = termSize * creditCount - depth;
+            // If every course happens on a tuesday at 2pm in the fall we would need a separate term per credit
+            int newTMax = Enum.GetValues(typeof(Term)).Length * creditCount - depth;
 
             // Update TermMax
             if (isDegreeCourse || vertex.TermMax == 0) {

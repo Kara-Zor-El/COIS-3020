@@ -6,12 +6,38 @@
       "CoRequisites": [],
       "PreRequisites": [
         "COIS-1010",
-        "COIS-1020"
+        "COIS-1020",
+        "COIS-2010",
+        "COIS-2020",
+        "MATH-1005"
       ],
       "TimeTableInfos": []
     }
   ],
   "Courses": [
+    {
+      "Name": "MATH-1005",
+      "IsPhantom": false,
+      "CoRequisites": [],
+      "PreRequisites": [],
+      "TimeTableInfos": [
+        {
+          "OfferedTerm": 0,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "08:00:00",
+              "End": "09:30:00"
+            },
+            {
+              "Day": 3,
+              "Start": "08:00:00",
+              "End": "09:30:00"
+            }
+          ]
+        }
+      ]
+    },
     {
       "Name": "COIS-1010",
       "IsPhantom": false,
@@ -23,13 +49,13 @@
           "TimeSlots": [
             {
               "Day": 1,
-              "Start": "09:00:00",
-              "End": "10:00:00"
+              "Start": "10:00:00",
+              "End": "11:00:00"
             },
             {
               "Day": 3,
-              "Start": "09:00:00",
-              "End": "10:00:00"
+              "Start": "10:00:00",
+              "End": "11:00:00"
             }
           ]
         },
@@ -37,14 +63,14 @@
           "OfferedTerm": 1,
           "TimeSlots": [
             {
-              "Day": 1,
-              "Start": "09:00:00",
-              "End": "10:00:00"
+              "Day": 2,
+              "Start": "13:00:00",
+              "End": "14:00:00"
             },
             {
-              "Day": 3,
-              "Start": "09:00:00",
-              "End": "10:00:00"
+              "Day": 4,
+              "Start": "13:00:00",
+              "End": "14:00:00"
             }
           ]
         }
@@ -59,22 +85,128 @@
       ],
       "TimeTableInfos": [
         {
+          "OfferedTerm": 1,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "09:00:00",
+              "End": "10:30:00"
+            },
+            {
+              "Day": 3,
+              "Start": "09:00:00",
+              "End": "10:30:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "COIS-2010",
+      "IsPhantom": false,
+      "CoRequisites": [],
+      "PreRequisites": [
+        "COIS-1020",
+        "MATH-1005"
+      ],
+      "TimeTableInfos": [
+        {
           "OfferedTerm": 0,
           "TimeSlots": [
             {
               "Day": 2,
-              "Start": "10:00:00",
-              "End": "12:00:00"
+              "Start": "11:00:00",
+              "End": "12:30:00"
             },
             {
               "Day": 4,
-              "Start": "10:00:00",
-              "End": "12:00:00"
+              "Start": "11:00:00",
+              "End": "12:30:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "COIS-2020",
+      "IsPhantom": false,
+      "CoRequisites": [
+        "COIS-2010"
+      ],
+      "PreRequisites": [
+        "COIS-1020"
+      ],
+      "TimeTableInfos": [
+        {
+          "OfferedTerm": 0,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "14:00:00",
+              "End": "15:30:00"
             },
+            {
+              "Day": 3,
+              "Start": "14:00:00",
+              "End": "15:30:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "BIOL-1010",
+      "IsPhantom": false,
+      "CoRequisites": [],
+      "PreRequisites": [],
+      "TimeTableInfos": [
+        {
+          "OfferedTerm": 0,
+          "TimeSlots": [
+            {
+              "Day": 2,
+              "Start": "09:00:00",
+              "End": "10:00:00"
+            },
+            {
+              "Day": 4,
+              "Start": "09:00:00",
+              "End": "10:00:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 1,
+          "TimeSlots": [
+            {
+              "Day": 2,
+              "Start": "09:00:00",
+              "End": "10:00:00"
+            },
+            {
+              "Day": 4,
+              "Start": "09:00:00",
+              "End": "10:00:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "BIOL-2010",
+      "IsPhantom": false,
+      "CoRequisites": [],
+      "PreRequisites": [
+        "BIOL-1010"
+      ],
+      "TimeTableInfos": [
+        {
+          "OfferedTerm": 1,
+          "TimeSlots": [
             {
               "Day": 5,
               "Start": "08:00:00",
-              "End": "15:00:00"
+              "End": "11:00:00"
             }
           ]
         }

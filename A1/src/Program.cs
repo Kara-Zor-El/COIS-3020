@@ -7,6 +7,9 @@ using CourseGraph;
 var jsonString = File.ReadAllText("./courseData.json");
 var loadedCourseData = JsonSerializer.Deserialize<CourseData>(jsonString);
 var courseGraph = CourseGraph.CourseGraph.FromCourseData(loadedCourseData);
+// Test Scheduling
+var coisDegree = loadedCourseData.GetDegreeByName("COIS");
+courseGraph.Schedule(termSize: 5, creditCount: 40, degreeCourse: coisDegree);
 // Write outputs
 var outputCourseData = courseGraph.GetCourseData();
 File.WriteAllText(
