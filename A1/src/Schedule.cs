@@ -128,17 +128,17 @@ namespace Schedule {
     /// <param name="term">which term we are checking in</param>
     /// <returns></returns>
     public List<TimeTableInfo> GetCourseValidTimeSlots(Course course, TimeTableInfo[] timeTableInfo, int term) {
-      var possibleTimeSlots = new List<TimeTableInfo>(timeTableInfo); // Clone the array
-      if (this.TermData.Count <= term) return possibleTimeSlots;
+      var possibleSections = new List<TimeTableInfo>(timeTableInfo); // Clone the array
+      if (this.TermData.Count <= term) return possibleSections;
       // Check if timeTableInfo has at least one item where the time doesn't overlap with anything else in this.TermData[term]
-      for (int slotIndex = 0; slotIndex < this.MaxTermSize && possibleTimeSlots.Count > 0; slotIndex++) {
+      for (int slotIndex = 0; slotIndex < this.MaxTermSize && possibleSections.Count > 0; slotIndex++) {
         var slotData = this.TermData[term][slotIndex];
         if (slotData == null) break;
-        var (checkCourse, checkTimeSlots) = slotData.Value;
+        var (checkCourse, checkSections) = slotData.Value;
         if (checkCourse == course) continue;
-        possibleTimeSlots.RemoveAll(t => checkTimeSlots.All(c => this.DoTimeSlotsOverlap(c, t)));
+        possibleSections.RemoveAll(t => checkSections.All(c => this.DoTimeSlotsOverlap(c, t)));
       }
-      return possibleTimeSlots;
+      return possibleSections;
     }
 
     /// <summary>
@@ -193,7 +193,7 @@ namespace Schedule {
           var (course, timeTableInfo) = slot.Value;
           var validTimeSlots = this.GetCourseValidTimeSlots(course, timeTableInfo, termIndex).ToArray();
           if (!validTimeSlots.Any()) {
-            throw new Exception($"Impossible: No valid timeslot available for course {course.Name} in term {termIndex}");
+            throw new Exception($"Impossible: No valid timeSlot available for course {course.Name} in term {termIndex}");
           }
           this.TermData[termIndex][slotIndex] = (course, validTimeSlots);
         }
@@ -215,6 +215,7 @@ namespace Schedule {
           // Create an array to represent the schedule for the current time slot
           var scheduleRow = new (Course course, int slot)?[Enum.GetValues(typeof(DayOfWeek)).Length];
           // Search all course entry's in the term
+          bool foundCourseForSlot = false;
           for (int slotIndex = 0; slotIndex < this.TermData[termIndex].Length; slotIndex++) {
             var slot = this.TermData[termIndex][slotIndex];
             if (slot == null) break; // Skip empty slots (Courses are added sequentially)
@@ -224,6 +225,11 @@ namespace Schedule {
             var chosenTimeSlot = timeTableInfo[0];
             var overlappingTimeSlots = chosenTimeSlot.TimeSlots.Where(ts => ts.Start <= time && ts.End > time);
             if (!overlappingTimeSlots.Any()) continue;
+            // This double checks our scheduling logic
+            if (foundCourseForSlot) {
+              throw new Exception("Narrowing TimeSlots Failed, got duplicate");
+            }
+            foundCourseForSlot = true;
             this.TermData[termIndex][slotIndex] = (course, [chosenTimeSlot]); // Reduce the schedule to only have the 
             foreach (var timeSlot in overlappingTimeSlots) {
               // Mark the corresponding day in the schedule row as occupied
