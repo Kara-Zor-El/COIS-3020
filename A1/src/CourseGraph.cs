@@ -96,7 +96,6 @@ namespace CourseGraph {
     /// <summary>
     /// The edges of this vertex.
     /// </summary>
-    /// TODO: Make edges just be a list of index's into a global edge list (this allows for faster two way lookups)
     public List<CourseEdge> Edges { get; set; }     // List of adjacency vertices
 
     /// <summary>Minimum term this course can be taken in.</summary>
@@ -141,7 +140,6 @@ namespace CourseGraph {
   public class CourseGraph : IDirectedGraph<Course, CourseRelation> {
     private List<CourseVertex> Vertices { get; set; }
 
-    // TODO: Remove this
     public List<string> MissedOpportunities;
 
     public CourseGraph() {
@@ -271,7 +269,6 @@ namespace CourseGraph {
     /// <param name="degree">The degree to toggle requirement</param>
     /// <exception cref="ArgumentException">Degree was not a phantom course.</exception>
     public void UpdateVertex(Course course, Course degree) {
-      // TODO: Test this fully
       if (!degree.IsPhantom) {
         throw new ArgumentException("A degree is expected to be a phantom course");
       }
@@ -416,14 +413,10 @@ namespace CourseGraph {
         if (!fillerCourse.Visited)
           throw new Exception("Impossible: Failed to place unrequired course");
       }
-      // TODO: Figure out how to place filler courses (corequisite's make this really annoying)
-      //       One idea would be to place the leaf nodes first but we want to prioritize nodes that let us place a dependent node later 
-      //       (or we could lock ourself into a situation where we can't place the node)
 
-      // TODO: Ensure we hit the requirements and return
+      // Ensure we hit the requirements and return
       if (schedule.CourseCount < creditCount)
-        Console.WriteLine($"Impossible: Failed to hit credit count, CourseCount {schedule.CourseCount}, creditCount: {creditCount}");
-      //   throw new Exception($"Impossible: Failed to hit credit count, CourseCount {schedule.CourseCount}, creditCount: {creditCount}");
+        throw new Exception($"Impossible: Failed to hit credit count, CourseCount {schedule.CourseCount}, creditCount: {creditCount}");
       return schedule;
     }
 
@@ -433,12 +426,6 @@ namespace CourseGraph {
     ) {
       // The course was already placed
       if (courseVertex.Visited) return;
-      Console.WriteLine($"Placing {courseVertex.Value.Name} with T_min {courseVertex.TermMin} and T_max {courseVertex.TermMax}");
-      // TODO: This should be possible to remove as I think it's handled by our topological sort
-      // // Ensure we place co-requisites courses first
-      // foreach (var coreq in courseVertex.Edges.Where(e => e.Relation == CourseRelation.Coreq)) {
-      //   this.PlaceInScheduleData(schedule, coreq.AdjVertex);
-      // }
       // Determine earliest course placement based off terms of all pre-req and co-req
       var minCoreq = courseVertex.Edges
                       .Where(e => e.Relation == CourseRelation.Coreq)
@@ -450,9 +437,7 @@ namespace CourseGraph {
                       .Select(e => schedule.GetCourseTerm(e.AdjVertex.Value))
                       .DefaultIfEmpty(0)
                       .Max() + 1;
-      // TODO: Investigate weather we actually use t_min
-      // TODO: Ensure my -1 logic hear actually makes sense
-      var courseMinimumTerm = Math.Max(minCoreq, Math.Max(minPrereq, courseVertex.TermMin)) - 1;
+      var courseMinimumTerm = Math.Max(minCoreq, minPrereq) - 1;
       // Place the actual course
       Course course = courseVertex.Value;
       for (int i = courseMinimumTerm; i < courseVertex.TermMax; i++) {
@@ -460,14 +445,12 @@ namespace CourseGraph {
         var termType = schedule.GetTermType(i);
         var possibleTimeSlots = course.TimeTableInfos.Where(slot => slot.OfferedTerm == termType);
         if (!possibleTimeSlots.Any()) continue; // No timeSlots exist this semester
-        var timeSlot = possibleTimeSlots.FirstOrDefault(t => !schedule.IsTimeSlotTaken(t, i), null);
-        // TODO: Check if any overlaps can be moved (This could reveal a more optimal schedule)
-        if (timeSlot == null) {
+        if (schedule.DoesCourseHaveValidTimeSlot(course, possibleTimeSlots.ToArray(), i).Count <= 0) {
           this.MissedOpportunities.Add($"Couldn't schedule {course.Name} in earliest timeSlot because of schedule conflict");
           continue; // No available timeslot
         }
         // Finally add the course
-        schedule.AddCourse(course: course, timeTableInfo: timeSlot, term: i);
+        schedule.AddCourse(course: course, term: i);
         courseVertex.Visited = true;
         break;
       }
