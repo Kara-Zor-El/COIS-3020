@@ -9,12 +9,24 @@ namespace A1Tests {
   /// Edge direction: AddEdge(A, B) means B is pre-/co-requisite of A (A depends on B).
   /// </summary>
   internal static class GraphTestHelpers {
-    private static readonly TimeTableInfo[] DefaultTimeSlots = [
-      new() {
-        OfferedTerm = Term.Fall,
-        TimeSlots = [new TimeSlot(DayOfWeek.Monday, new TimeOnly(9, 0), new TimeOnly(10, 0))]
+    private static TimeTableInfo[] CreateDefaultTimeSlots() {
+      var data = new List<TimeTableInfo>();
+      foreach (Term term in Enum.GetValues(typeof(Term))) {
+        foreach (DayOfWeek day in Enum.GetValues(typeof(DayOfWeek))) {
+          // Skip Weekends
+          if (day == DayOfWeek.Sunday) continue;
+          if (day == DayOfWeek.Saturday) continue;
+          // Generate A section at every hour at every term
+          for (TimeOnly time = TimeTableInfo.EarliestTime; time <= TimeTableInfo.LatestTime.AddHours(-1); time = time.AddHours(1)) {
+            data.Add(new() {
+              OfferedTerm = term,
+              TimeSlots = [new TimeSlot(day, time, time.AddHours(1))]
+            });
+          }
+        }
       }
-    ];
+      return data.ToArray();
+    }
 
     /// <summary>Creates a degree course.</summary>
     public static Course CreateDegree(string name, List<string> preRequisites) {
@@ -23,7 +35,7 @@ namespace A1Tests {
 
     /// <summary>Creates a non-degree course with valid timetable.</summary>
     public static Course CreateCourse(string name, List<string> preRequisites, List<string> coRequisites) {
-      return new Course(name, coRequisites ?? [], preRequisites, DefaultTimeSlots, isDegree: false);
+      return new Course(name, coRequisites ?? [], preRequisites, CreateDefaultTimeSlots(), isDegree: false);
     }
 
     /// <summary>

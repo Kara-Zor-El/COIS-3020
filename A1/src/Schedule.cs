@@ -4,6 +4,7 @@ using Spectre.Console; // A library for pretty console output
 using CourseGraph;
 using System.Collections.Generic;
 using System.IO;
+using System.Diagnostics;
 
 namespace Schedule {
   public class Schedule {
@@ -220,8 +221,10 @@ namespace Schedule {
             var (course, timeTableInfo) = slot.Value;
             // Make a list of all the time slots that are at the current time.
             // NOTE: We could let the user input bias's which we could use to further select these
-            var overlappingTimeSlots = timeTableInfo[0].TimeSlots.Where(ts => ts.Start <= time && ts.End > time);
+            var chosenTimeSlot = timeTableInfo[0];
+            var overlappingTimeSlots = chosenTimeSlot.TimeSlots.Where(ts => ts.Start <= time && ts.End > time);
             if (!overlappingTimeSlots.Any()) continue;
+            this.TermData[termIndex][slotIndex] = (course, [chosenTimeSlot]); // Reduce the schedule to only have the 
             foreach (var timeSlot in overlappingTimeSlots) {
               // Mark the corresponding day in the schedule row as occupied
               scheduleRow[(int)timeSlot.Day] = (course, slotIndex);
@@ -252,10 +255,9 @@ namespace Schedule {
     }
 
     /// <summary>
-    /// Writes the schedule to a file.
+    /// Stringifies a given schedule.
     /// </summary>
-    /// <param name="fileName">The file to write to</param>
-    public void WriteScheduleToFile(string fileName) {
+    public override string ToString() {
       var tables = this.GenerateSchedule();
       // Render to a string
       var sw = new StringWriter();
@@ -268,7 +270,15 @@ namespace Schedule {
       });
       foreach (var table in tables) console.Write(table);
 
-      File.WriteAllText(fileName, sw.ToString());
+      return sw.ToString();
+    }
+
+    /// <summary>
+    /// Writes the schedule to a file.
+    /// </summary>
+    /// <param name="fileName">The file to write to</param>
+    public void WriteScheduleToFile(string fileName) {
+      File.WriteAllText(fileName, this.ToString());
     }
   }
 }
