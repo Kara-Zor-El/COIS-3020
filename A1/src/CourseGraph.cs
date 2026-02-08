@@ -141,8 +141,12 @@ namespace CourseGraph {
   public class CourseGraph : IDirectedGraph<Course, CourseRelation> {
     private List<CourseVertex> Vertices { get; set; }
 
+    // TODO: Remove this
+    public List<string> MissedOpportunities;
+
     public CourseGraph() {
       this.Vertices = new List<CourseVertex>();
+      this.MissedOpportunities = new List<string>();
     }
 
     /// <summary>
@@ -458,7 +462,10 @@ namespace CourseGraph {
         if (!possibleTimeSlots.Any()) continue; // No timeSlots exist this semester
         var timeSlot = possibleTimeSlots.FirstOrDefault(t => !schedule.IsTimeSlotTaken(t, i), null);
         // TODO: Check if any overlaps can be moved (This could reveal a more optimal schedule)
-        if (timeSlot == null) continue; // No available timeslot
+        if (timeSlot == null) {
+          this.MissedOpportunities.Add($"Couldn't schedule {course.Name} in earliest timeSlot because of schedule conflict");
+          continue; // No available timeslot
+        }
         // Finally add the course
         schedule.AddCourse(course: course, timeTableInfo: timeSlot, term: i);
         courseVertex.Visited = true;
