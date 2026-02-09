@@ -35,22 +35,14 @@ namespace Schedule {
     /// <summary>Adds a given course to the schedule in the desired term.</summary>
     /// <param name="course">The course to add to the schedule.</param>
     /// <param name="term">The term to add the course to</param>
-    /// <exception cref="ArgumentException">If a degree course is being added</exception>
-    /// <exception cref="ArgumentException">If a course is being added to a non existing term</exception>
-    /// <exception cref="ArgumentException">If the given term is full.</exception>
-    /// <exception cref="ArgumentException">If the course is not offered in the given term.</exception>
+    /// <exception cref="Exception">If the course cannot be placed in the term</exception>
     /// <exception cref="ArgumentException">If the course overlaps with another course in the given term.</exception>
     public void AddCourse(Course course, int term) {
-      // Input Validation
-      if (course.IsDegree)
-        throw new ArgumentException("Cannot add a degree course to a schedule");
-      if (term < 0)
-        throw new ArgumentException("Cannot add a course outside of the schedule");
+      if (!this.CanPlaceCourse(course, term))
+        throw new Exception("Invalid Course Placement");
       // Initial TimeSlot Validation (check if the course is offered in the term)
       Term termType = this.GetTermType(term);
       var possibleTimeSlots = course.TimeTableInfos.Where(t => t.OfferedTerm == termType);
-      if (!possibleTimeSlots.Any())
-        throw new ArgumentException($"Course {course.Name} is not offered in term {term}");
       var nonOverlappingTimeSlots = this.GetCourseValidTimeSlots(course, possibleTimeSlots.ToArray(), term);
       if (nonOverlappingTimeSlots.Count <= 0)
         throw new ArgumentException($"Course {course.Name}, can't be scheduled do to overlaps in term {term}");
@@ -67,17 +59,42 @@ namespace Schedule {
         this.CourseCount++;
         return;
       }
-      throw new ArgumentException("Cannot add a course to a full term");
+      throw new Exception("Impossible: Course had to have been placed");
     }
 
     // --------------------------- Info Methods ----------------------------
+
+    /// <summary>
+    /// Determines if the course can be placed in the specified term.
+    /// Constraints:
+    /// * IsTermFull
+    /// * DoesCourseRunInTerm
+    /// * TODO: IsValidTimeTable
+    /// </summary>
+    /// <param name="course"></param>
+    /// <param name="term"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
+    public bool CanPlaceCourse(Course course, int term) {
+      // Basic Input Validation
+      if (course.IsDegree)
+        throw new ArgumentException("Cannot add a degree course to a schedule");
+      if (term < 0)
+        throw new ArgumentException("Cannot add a course outside of the schedule");
+      // Determine if the course can be placed in this term
+      if (this.IsTermFull(term)) return false; // NOTE: We cannot place it into a full term
+      Term termType = this.GetTermType(term);
+      if (!course.TimeTableInfos.Any(t => t.OfferedTerm == termType)) return false; // The course doesn't run this term
+      // TODO: Do timeTableCheck
+      return true;
+    }
 
     /// <summary>
     /// Checks if the given time slot is already taken.
     /// </summary>
     /// <param name="timeTableInfo">The time slot to check against</param>
     /// <param name="term">which term we are checking in</param>
-    /// <returns></returns>
+    // TODO: Remove this function
     public List<TimeTableInfo> GetCourseValidTimeSlots(Course course, TimeTableInfo[] timeTableInfo, int term) {
       var possibleSections = new List<TimeTableInfo>(timeTableInfo); // Clone the array
       if (this.TermData.Count <= term) return possibleSections;
@@ -129,6 +146,7 @@ namespace Schedule {
     /// 
     /// Time Complexity: O(TermCount * MaxTermSize)
     /// </summary>
+    // TODO: Completely rewrite this function
     private Table[] GenerateSchedule() {
       // Generate the table
       var tables = new Table[this.TermData.Count];

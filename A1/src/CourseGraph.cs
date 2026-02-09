@@ -300,19 +300,16 @@ namespace CourseGraph {
                       .DefaultIfEmpty(-1)
                       .Max() + 1;
       var courseMinimumTerm = Math.Max(minCoreq, minPrereq);
-
       // Place the actual course
       Course course = courseVertex.Value;
       int i = courseMinimumTerm - 1;
       while (true) {
         i++;
-        if (schedule.IsTermFull(i)) continue; // Can't place in a full term.
+        if (!schedule.CanPlaceCourse(course, i)) continue; // Check if the course can be placed in the term
         var termType = schedule.GetTermType(i);
         var possibleTimeSlots = course.TimeTableInfos.Where(slot => slot.OfferedTerm == termType);
-        if (!possibleTimeSlots.Any()) continue; // No timeSlots exist this semester
-        if (schedule.GetCourseValidTimeSlots(course, possibleTimeSlots.ToArray(), i).Count <= 0) {
+        if (schedule.GetCourseValidTimeSlots(course, possibleTimeSlots.ToArray(), i).Count <= 0)
           continue; // No available timeslot
-        }
         // Finally add the course
         schedule.AddCourse(course: course, term: i);
         courseVertex.Visited = true;
