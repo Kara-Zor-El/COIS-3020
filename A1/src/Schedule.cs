@@ -34,20 +34,6 @@ namespace Schedule {
 
     // ------------------------- Internal Methods -------------------------
 
-    /// <summary>Computes a stable hash for slot data for memoization.</summary>
-    private static int HashSlotData((Course course, TimeTableInfo[] courseSections)?[] slotData) {
-      var h = new HashCode();
-      h.Add(slotData.Length);
-      foreach (var slot in slotData) {
-        if (slot is null) { h.Add(0); continue; }
-        var (course, sections) = slot.Value;
-        h.Add(course.Name);
-        h.Add(sections.Length);
-        foreach (var s in sections) h.Add(s);
-      }
-      return h.ToHashCode();
-    }
-
     // ------------------------- Mutation Methods -------------------------
 
     /// <summary>Adds a given course to the schedule in the desired term.</summary>
