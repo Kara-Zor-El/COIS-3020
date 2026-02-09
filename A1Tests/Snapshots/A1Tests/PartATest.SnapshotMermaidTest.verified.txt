@@ -1591,12 +1591,12 @@ flowchart TB
   nWASC -->|Prereq| nWASC-4703H
   nWRIT -->|Prereq| nWRIT-1001H
   nWRIT -->|Prereq| nWRIT-2002H
-  nADMN-2221H -->|Prereq| nADMN-1221H
+  nADMN-2221H -->|Coreq| nADMN-1221H
   nADMN-3200H -->|Prereq| nADMN-2200H
   nADMN-3200H -->|Prereq| nADMN-1221H
   nADMN-3200H -->|Prereq| nECON-1010H
   nADMN-3220H -->|Prereq| nADMN-2220H
-  nADMN-3221H -->|Prereq| nADMN-2221H
+  nADMN-3221H -->|Coreq| nADMN-2221H
   nADMN-3230H -->|Prereq| nADMN-2230H
   nADMN-4300H -->|Prereq| nADMN-3300H
   nADMN-4420H -->|Prereq| nADMN-3420H

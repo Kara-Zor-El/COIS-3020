@@ -193,7 +193,7 @@ namespace Schedule {
     /// <returns>`true` if the term is full, otherwise `false`</returns>
     public bool IsTermFull(int term) {
       if (this.TermData.Count <= term) return false;
-      return this.TermData.Any(slot => slot == null);
+      return !this.TermData[term].Any(slot => slot == null);
     }
 
     /// <summary>Queries which term a course is scheduled for.</summary>

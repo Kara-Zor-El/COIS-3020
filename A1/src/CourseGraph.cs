@@ -273,6 +273,7 @@ namespace CourseGraph {
         if (vertex.Visited) continue; // We've already placed this course
         // We place these chains from the start to the end using a topological sort
         foreach (var course in this.TopologicalSort(vertex)) {
+          if (schedule.GetScheduledCreditCount() >= creditCount) return; // No need to continue scheduling
           this.PlaceInSchedule(schedule, course);
         }
         // This is impossible but we do the check anyway to ensure that we placed every node

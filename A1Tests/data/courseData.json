@@ -1801,10 +1801,8 @@
     {
       "Name": "ADMN-2221H",
       "IsDegree": false,
-      "CoRequisites": [],
-      "PreRequisites": [
-        "ADMN-1221H"
-      ],
+      "CoRequisites": ["ADMN-1221H"],
+      "PreRequisites": [],
       "TimeTableInfos": [
         {
           "OfferedTerm": 1,
@@ -2290,16 +2288,44 @@
     {
       "Name": "ADMN-3221H",
       "IsDegree": false,
-      "CoRequisites": [],
-      "PreRequisites": [
-        "ADMN-2221H"
-      ],
+      "CoRequisites": ["ADMN-2221H"],
+      "PreRequisites": [],
       "TimeTableInfos": [
         {
           "OfferedTerm": 1,
           "TimeSlots": [
             {
               "Day": 1,
+              "Start": "13:00:00",
+              "End": "15:50:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 1,
+          "TimeSlots": [
+            {
+              "Day": 3,
+              "Start": "13:00:00",
+              "End": "15:50:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 0,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "13:00:00",
+              "End": "15:50:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 0,
+          "TimeSlots": [
+            {
+              "Day": 3,
               "Start": "13:00:00",
               "End": "15:50:00"
             }
@@ -12641,6 +12667,16 @@
               "End": "21:50:00"
             }
           ]
+        },
+        {
+          "OfferedTerm": 1,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "19:00:00",
+              "End": "21:50:00"
+            }
+          ]
         }
       ]
     },
@@ -12731,6 +12767,26 @@
               "Day": 3,
               "Start": "10:00:00",
               "End": "10:50:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 0,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "13:00:00",
+              "End": "14:50:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 1,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "13:00:00",
+              "End": "14:50:00"
             }
           ]
         },
@@ -12968,6 +13024,16 @@
       "TimeTableInfos": [
         {
           "OfferedTerm": 0,
+          "TimeSlots": [
+            {
+              "Day": 3,
+              "Start": "18:30:00",
+              "End": "21:20:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 1,
           "TimeSlots": [
             {
               "Day": 3,
@@ -14760,6 +14826,16 @@
           "TimeSlots": [
             {
               "Day": 1,
+              "Start": "09:00:00",
+              "End": "11:50:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 1,
+          "TimeSlots": [
+            {
+              "Day": 2,
               "Start": "09:00:00",
               "End": "11:50:00"
             }
@@ -34855,6 +34931,26 @@
         },
         {
           "OfferedTerm": 1,
+          "TimeSlots": [
+            {
+              "Day": 2,
+              "Start": "13:00:00",
+              "End": "15:50:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 0,
+          "TimeSlots": [
+            {
+              "Day": 1,
+              "Start": "08:00:00",
+              "End": "10:50:00"
+            }
+          ]
+        },
+        {
+          "OfferedTerm": 0,
           "TimeSlots": [
             {
               "Day": 2,
