@@ -238,7 +238,6 @@ namespace CourseGraph {
       }
       roots.Remove(degreeVertex); // Don't put the degree in roots (handle it separately)
       // -------------- Compute Costs --------------
-      foreach (var vert in this.Vertices) vert.Cost = 0;
       this.ComputeCostHeuristic(degreeVertex);
       // -------------- Greedy Schedule --------------
       var schedule = new Schedule.Schedule(maxTermSize: termSize);
@@ -246,7 +245,6 @@ namespace CourseGraph {
       var requiredRootStack = new Stack<CourseVertex>(degreeVertex.Edges.Select(e => e.AdjVertex).OrderBy(c => c.Cost));
       this.PlaceCourseChains(schedule, requiredRootStack, creditCount);
       // -------------- Compute Costs --------------
-      // Recompute costs from all other roots for filler courses
       foreach (var root in roots) this.ComputeCostHeuristic(root);
       // -------------- Greedy Schedule --------------
       // After we place the required courses we fill the creditCount with filler courses

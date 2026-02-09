@@ -6,8 +6,8 @@ using System.Collections.Generic;
 using System.IO;
 
 namespace Schedule {
-  public record TimeTableResult(
-    (Course course, TimeTableInfo section)[,] TimeTables,
+  public record struct TimeTableResult(
+    List<(Course course, TimeTableInfo section)[]> TimeTables,
     (Course course, TimeTableInfo[] courseSections)?[] SlotData
   );
 
@@ -23,8 +23,6 @@ namespace Schedule {
     private List<(Course course, TimeTableInfo[] timeTableInfo)?[]> TermData;
     /// <summary>A quick mapping of course names to their scheduled term.</summary>
     private Dictionary<string, int> ScheduledCourses;
-    /// <summary>Cache for TimeTableResult: (hash of slot data, full output)</summary>
-    private (int hash, TimeTableResult output)? cache;
     /// <summary>The number of courses currently taken in our schedule.</summary>
     public int CourseCount { get; private set; }
 
@@ -37,11 +35,9 @@ namespace Schedule {
       this.CourseCount = 0;
     }
 
-    // ------------------------- Mutation Methods -------------------------
+    // ------------------------- Internal Methods -------------------------
 
-    /// <summary>
-    /// Computes a stable hash for slot data for memoization.
-    /// </summary>
+    /// <summary>Computes a stable hash for slot data for memoization.</summary>
     private static int HashSlotData((Course course, TimeTableInfo[] courseSections)?[] slotData) {
       var h = new HashCode();
       h.Add(slotData.Length);
@@ -55,64 +51,7 @@ namespace Schedule {
       return h.ToHashCode();
     }
 
-    /// <summary>
-    /// Generates every valid permutation of section choices per slot such that no two chosen sections overlap.
-    /// Time Complexity: O(n^m) where n is the number of possible sections and m is the number of slots.
-    /// </summary>
-    /// <param name="slotData">Per-slot (course, possible sections); null = empty slot.</param>
-    /// <returns>TimeTableResult (TimeTables, slotData). Empty grid if no valid permutation.</returns>
-    public TimeTableResult GetValidTimeTables((Course course, TimeTableInfo[] courseSections)?[] slotData) {
-      if (slotData == null || slotData.Length == 0) {
-        return new TimeTableResult(new (Course, TimeTableInfo)[0, 0], slotData ?? Array.Empty<(Course, TimeTableInfo[])?>());
-      }
-
-      // dense is the slotData without the null values
-      var dense = slotData.Where(s => s.HasValue).Select(s => s!.Value).ToArray();
-      if (dense.Length == 0) return new TimeTableResult(new (Course, TimeTableInfo)[0, 0], slotData);
-
-      // No valid timetable if any slot has zero possible sections
-      foreach (var (_, sections) in dense) {
-        if (sections.Length == 0)
-          return new TimeTableResult(new (Course, TimeTableInfo)[0, 0], slotData);
-      }
-
-      int hash = HashSlotData(slotData);
-      if (this.cache != null && this.cache.Value.hash == hash) {
-        return this.cache.Value.output;
-      }
-      var assignment = new (Course course, TimeTableInfo info)[dense.Length];
-      (Course course, TimeTableInfo info)[]? singleResult = null;
-      void Backtrack(int slotIdx) {
-        if (slotIdx == dense.Length) {
-          singleResult = assignment.ToArray();
-          return; // One valid timetable is enough; stop searching.
-        }
-        var (course, sections) = dense[slotIdx];
-        foreach (var section in sections) {
-          if (singleResult != null) return;
-          bool overlaps = false;
-          for (int i = 0; i < slotIdx; i++) {
-            if (TimeTableInfo.DoesOverlap(assignment[i].info, section)) {
-              overlaps = true;
-              break;
-            }
-          }
-          if (overlaps) continue;
-          assignment[slotIdx] = (course, section);
-          Backtrack(slotIdx + 1);
-        }
-      }
-      Backtrack(0);
-      int numTimeTables = singleResult != null ? 1 : 0;
-      int numSlots = dense.Length;
-      var grid = new (Course course, TimeTableInfo section)[numTimeTables, numSlots];
-      if (singleResult != null)
-        for (int slotIndex = 0; slotIndex < numSlots; slotIndex++)
-          grid[0, slotIndex] = singleResult[slotIndex];
-      var output = new TimeTableResult(grid, slotData);
-      this.cache = (hash, output);
-      return output;
-    }
+    // ------------------------- Mutation Methods -------------------------
 
     /// <summary>Adds a given course to the schedule in the desired term.</summary>
     /// <param name="course">The course to add to the schedule.</param>
@@ -120,8 +59,10 @@ namespace Schedule {
     /// <exception cref="Exception">If the course cannot be placed in the term</exception>
     /// <exception cref="ArgumentException">If the course overlaps with another course in the given term.</exception>
     public void AddCourse(Course course, int term) {
-      if (!this.CanPlaceCourse(course, term))
-        throw new Exception("Invalid Course Placement");
+      if (!this.CanPlaceCourse(course, term)) throw new Exception("Invalid Course Placement");
+      // TODO: Create a new array representing the proposed `term`
+      // TODO: Get the valid timeSlots
+      // TODO: Place the timeSlot
       // Initial TimeSlot Validation (check if the course is offered in the term)
       Term termType = this.GetTermType(term);
       var possibleTimeSlots = course.TimeTableInfos.Where(t => t.OfferedTerm == termType);
@@ -133,7 +74,7 @@ namespace Schedule {
         this.TermData.Add(new (Course course, TimeTableInfo[] timeTableInfo)?[this.MaxTermSize]);
       }
       // Try to add the course to the first available slot in the term
-      for (int slotIndex = 0; slotIndex < this.MaxTermSize; slotIndex++) {
+      for (int slotIndex = 0; slotIndex < this.TermData[term].Length; slotIndex++) {
         var currentSlot = this.TermData[term][slotIndex];
         if (currentSlot != null) continue;
         this.TermData[term][slotIndex] = (course, nonOverlappingTimeSlots.ToArray());
@@ -145,6 +86,59 @@ namespace Schedule {
     }
 
     // --------------------------- Info Methods ----------------------------
+
+    /// <summary>Cache for TimeTableResult: (hash of slot data, full output)</summary>
+    private (int hash, TimeTableResult output) cache = (-1, default(TimeTableResult));
+
+    /// <summary>
+    /// Generates every valid permutation of section choices per slot such that no two chosen sections overlap.
+    /// Time Complexity: O(n^m) where n is the number of possible sections and m is the number of slots.
+    /// </summary>
+    /// <param name="slotData">Per-slot (course, possible sections); null = empty slot.</param>
+    /// <returns>TimeTableResult (TimeTables, slotData). Empty grid if no valid permutation.</returns>
+    public TimeTableResult GetValidTimeTables((Course course, TimeTableInfo[] courseSections)?[] slotData) {
+      // If input is empty we can return real quick
+      if (slotData == null || slotData.Length == 0) return new TimeTableResult([], slotData ?? []);
+      // Memorization
+      // NOTE: This is a simple memorization because the call pattern is to call a 
+      // bunch of times for a single set of courses rather than random access
+      int hash = HashSlotData(slotData);
+      if (this.cache.hash == hash) return this.cache.output;
+      // Compute permutations
+      var permutations = new List<(Course course, TimeTableInfo info)>();
+      // TODO: Generate all permutations (store in permutations), (any timeslots that don't work remove them in slotData or a clone of it)
+      (Course course, TimeTableInfo info)[]? singleResult = null;
+      void Backtrack(int slotIdx) {
+        if (slotIdx == slotData.Length) {
+          singleResult = permutations.ToArray();
+          return; // One valid timetable is enough; stop searching.
+        }
+        var (course, sections) = slotData[slotIdx];
+        foreach (var section in sections) {
+          if (singleResult != null) return;
+          bool overlaps = false;
+          for (int i = 0; i < slotIdx; i++) {
+            if (TimeTableInfo.DoesOverlap(permutations[i].info, section)) {
+              overlaps = true;
+              break;
+            }
+          }
+          if (overlaps) continue;
+          permutations[slotIdx] = (course, section);
+          Backtrack(slotIdx + 1);
+        }
+      }
+      Backtrack(0);
+      int numTimeTables = singleResult != null ? 1 : 0;
+      int numSlots = slotData.Length;
+      var grid = new List<(Course course, TimeTableInfo section)[]>();
+      if (singleResult != null)
+        for (int slotIndex = 0; slotIndex < numSlots; slotIndex++)
+          grid[0, slotIndex] = singleResult[slotIndex];
+      var output = new TimeTableResult(grid, slotData);
+      this.cache = (hash, output);
+      return output;
+    }
 
     /// <summary>
     /// Determines if the course can be placed in the specified term.
@@ -223,97 +217,68 @@ namespace Schedule {
 
     // ------------------------- Display Methods --------------------------
 
-    /// <summary>
-    /// Generate the schedule as a table.
-    /// 
-    /// Time Complexity: O(TermCount * MaxTermSize)
-    /// </summary>
-    // TODO: Completely rewrite this function
-    private Table[] GenerateSchedule() {
-      // Generate the table
-      var tables = new Table[this.TermData.Count];
-      // Helper function to create a colored markup for occupied cells
+    /// <summary>Generate the schedule as a table.</summary>
+    private Table?[] GenerateSchedule() {
+      // A helper to generate colored filled cells
       var colors = new[] { Color.Blue, Color.Red, Color.Yellow, Color.Green, Color.Violet };
-      Markup UsedCell(string name, int slot) => new Markup(name, new Style(foreground: null, background: colors[slot % colors.Length]));
-      // Print a schedule table for each term
+      Markup UsedCell(string name, int slot) => new Markup(name, new Style(background: colors[slot % colors.Length]));
+      // Generate a table per term
+      var termTables = new Table?[this.TermData.Count];
       for (int termIndex = 0; termIndex < this.TermData.Count; termIndex++) {
-        // Filter out any overlapping timeslots
-        for (int slotIndex = 0; slotIndex < this.TermData[termIndex].Length; slotIndex++) {
-          var slot = this.TermData[termIndex][slotIndex];
-          if (slot == null) break; // Skip empty slots (Courses are added sequentially)
-          var (course, timeTableInfo) = slot.Value;
-          var validTimeSlots = this.GetCourseValidTimeSlots(course, timeTableInfo, termIndex).ToArray();
-          if (!validTimeSlots.Any()) {
-            throw new Exception($"Impossible: No valid timeSlot available for course {course.Name} in term {termIndex}");
-          }
-          this.TermData[termIndex][slotIndex] = (course, validTimeSlots);
-        }
-        // Determine which term we are in based on the starting term and the term index
-        Term currentTerm = this.GetTermType(termIndex);
-        // Build the initial table with time slots
+        var termData = this.TermData[termIndex];
+        // Get TimeTable Information
+        var (timeTableInfo, _) = this.GetValidTimeTables(termData);
+        // Because we use `getValidTimeTables` to check if we can place in term,
+        // we should never have a case where the result is empty if we have things
+        // scheduled in the term.
+        // TODO: Enable this once `GetValidTimeTables` is implemented.
+        // if (timeTableInfo.Length < 0 && termData.Any(i => i != null)) {
+        //   throw new Exception("Impossible: There are no valid timetables for a term");
+        // }
+        // Build Term Table Header
         var table = new Table().Border(TableBorder.Rounded).ShowRowSeparators();
-        table.Title($"Term {termIndex} - {currentTerm} Schedule");
-        // Add a column for each day of the week plus an initial column for the time slots
-        table.AddColumns(
-          new[] { "Time" }
-            .Concat(Enum.GetValues(typeof(DayOfWeek)) // Get the names of the days of the week from the enum
-            .Cast<DayOfWeek>() // Convert the enum values to the enum type
-            .Select(d => d.ToString())) // Convert the enum values to their string representation
-            .ToArray() // Convert the IEnumerable to an array for the AddColumns method
-        );
-        // Add a row for every 30 minutes from the start to the end
-        for (TimeOnly time = TimeTableInfo.EarliestTime; time <= TimeTableInfo.LatestTime; time = time.AddMinutes(this.TimeIncrement)) {
-          // Create an array to represent the schedule for the current time slot
-          var scheduleRow = new (Course course, int slot)?[Enum.GetValues(typeof(DayOfWeek)).Length];
-          // Search all course entry's in the term
-          bool foundCourseForSlot = false;
-          for (int slotIndex = 0; slotIndex < this.TermData[termIndex].Length; slotIndex++) {
-            var slot = this.TermData[termIndex][slotIndex];
-            if (slot == null) break; // Skip empty slots (Courses are added sequentially)
-            var (course, timeTableInfo) = slot.Value;
-            // Make a list of all the time slots that are at the current time.
-            // NOTE: We could let the user input bias's which we could use to further select these
-            var chosenTimeSlot = timeTableInfo[0];
-            var overlappingTimeSlots = chosenTimeSlot.TimeSlots.Where(ts => ts.Start <= time && ts.End > time);
-            if (!overlappingTimeSlots.Any()) continue;
-            // This double checks our scheduling logic
-            // if (foundCourseForSlot) {
-            //   throw new Exception("Narrowing TimeSlots Failed, got duplicate");
-            // }
-            foundCourseForSlot = true;
-            this.TermData[termIndex][slotIndex] = (course, [chosenTimeSlot]); // Reduce the schedule to only have the 
-            foreach (var timeSlot in overlappingTimeSlots) {
-              // Mark the corresponding day in the schedule row as occupied
-              scheduleRow[(int)timeSlot.Day] = (course, slotIndex);
+        table.Title($"Term {termIndex} - {this.GetTermType(termIndex)} Schedule");
+        var header = new string[] { "Time" }
+                        .Concat(Enum.GetNames(typeof(DayOfWeek))) // Get's the names of the week and appends to `Time` list
+                        .ToArray();
+        table.AddColumns(header); // Should look like: Time | Sunday | ... | Saturday
+        // Build Term Table Body
+        for ( // Loop from the beginning of the day to the end of the day in time increments
+          var time = TimeTableInfo.EarliestTime;
+          time <= TimeTableInfo.LatestTime;
+          time = time.AddMinutes(this.TimeIncrement)
+        ) {
+          var row = new Markup?[header.Length];
+          row[0] = new Markup(time.ToString("HH:mm")); // Set the first row the time
+          for (int i = 0; i < timeTableInfo.Length; i++) {
+            // NOTE: We always choose the first permutation because it doesn't matter 
+            //       This could be changed to get a more desirable course layout.
+            var (course, sessions) = timeTableInfo[0, i];
+            foreach (var courseSection in sessions.TimeSlots) {
+              // NOTE: Because we can't partially cover cell we use > for the end
+              if (courseSection.Start <= time && courseSection.End > time) {
+                row[(int)courseSection.Day] = UsedCell(course.Name, i);
+              }
             }
           }
-          // Add the row entry
-          table.AddRow(
-            new[] { new Markup(time.ToString("HH:mm")) }
-              .Concat(scheduleRow.Select(e => e != null ? UsedCell(e.Value.course.Name, e.Value.slot) : new Markup("")))
-              .ToArray()
-          );
+          table.AddRow(row.Select(r => r ?? new Markup(""))); // Add the row, fill in blanks with nothing
         }
-        tables[termIndex] = table;
+        // Store the table
+        termTables[termIndex] = table;
       }
-      return tables;
+      return termTables;
     }
 
-    /// <summary>
-    /// Generate the schedule as a table.
-    /// 
-    /// Time Complexity: O(TermCount * MaxTermSize)
-    /// </summary>
+    /// <summary>Prints the schedule to the console.</summary>
     public void PrintSchedule() {
       var tables = this.GenerateSchedule();
       foreach (var table in tables) {
+        if (table == null) continue;
         AnsiConsole.Write(table);
       }
     }
 
-    /// <summary>
-    /// Stringifies a given schedule.
-    /// </summary>
+    /// <summary>Stringifies the schedule.</summary>
     public override string ToString() {
       var tables = this.GenerateSchedule();
       // Render to a string
@@ -325,14 +290,14 @@ namespace Schedule {
         // Forward console data to StringWriter
         Out = new AnsiConsoleOutput(sw)
       });
-      foreach (var table in tables) console.Write(table);
-
+      foreach (var table in tables) {
+        if (table == null) continue;
+        console.Write(table);
+      }
       return sw.ToString();
     }
 
-    /// <summary>
-    /// Writes the schedule to a file.
-    /// </summary>
+    /// <summary>Writes the schedule to a file.</summary>
     /// <param name="fileName">The file to write to</param>
     public void WriteScheduleToFile(string fileName) {
       File.WriteAllText(fileName, this.ToString());
