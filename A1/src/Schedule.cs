@@ -200,10 +200,8 @@ namespace Schedule {
     /// <param name="term">The term we want to check</param>
     /// <returns>`true` if the term is full, otherwise `false`</returns>
     public bool IsTermFull(int term) {
-      // TODO: Rewrite this to a simple linq statement
       if (this.TermData.Count <= term) return false;
-      foreach (var slot in this.TermData[term]) if (slot == null) return false;
-      return true;
+      return this.TermData.Any(slot => slot == null);
     }
 
     /// <summary>Queries which term a course is scheduled for.</summary>

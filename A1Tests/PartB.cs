@@ -51,7 +51,6 @@ namespace A1Tests {
     }
     [TestMethod]
     public Task SnapshotSingleCourseCoReqTest() {
-      // TODO: This isn't working figure out why
       var data = new CourseData {
         Degrees = [
           GraphTestHelpers.CreateDegree("COIS", preRequisites: ["1020"])
@@ -66,18 +65,7 @@ namespace A1Tests {
       // Snapshots
       return this.Verify(schedule.ToString(), this.CreateSettings());
     }
-    // TODO: Snapshot Test Single Course With CoReq
-    // TODO: Snapshot Test Single Course With Both
-    // TODO: Snapshot Test 2 Overlapping
-    // TODO: Snapshot Test No Required Courses
-    // TODO: Snapshot Test Only Required Courses
-    // TODO: Snapshot Test Small Mixed Load
-    // TODO: Snapshot Test Worst Case Mock (Say like 3 courses)
     // Validation Tests
-    // TODO: Test outside of schedule bounds (please grab these directly from the schedule)
-    // TODO: Test invalid degree
-    // TODO: Test creditCount can't be reached
-    // TODO: Test 0 termSize
     #endregion
     [TestMethod]
     public Task SnapshotTrentData() {
