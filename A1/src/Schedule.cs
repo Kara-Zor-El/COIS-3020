@@ -128,25 +128,27 @@ namespace Schedule {
         if (valid) allPermutations.Add(candidate);
       }
 
-      // Narrow timeslot: keep only sections that appear in at least one valid permutation
-      var narrowedSlotData = new (Course course, TimeTableInfo[] courseSections)?[slotData.Length];
-      for (int i = 0; i < slotData.Length; i++) {
-        if (!slotData[i].HasValue) {
-          narrowedSlotData[i] = null;
-          continue;
+      // If we have a lot of combinations we filter out any sections that don't fit into a valid timeslot, 
+      // this lets us reduce the problem size when we have large terms (it's expensive hence the heuristic)
+      if (total > 1024) {
+        // Filter out any sections from the slotData that are not used in a valid permutation
+        var narrowedSlotData = new (Course course, TimeTableInfo[] courseSections)?[slotData.Length];
+        for (int i = 0; i < slotData.Length; i++) {
+          var slot = slotData[i];
+          if (slot == null) continue;
+          var (course, _) = slot.Value;
+          var sectionsInValidPerms = allPermutations
+            .Select(p => p[i]) // Lookup the permutation from the slot
+            .Where(e => e.HasValue) // Ensure the permutation isn't null
+            .Select(e => e!.Value.section) // Get the section data
+            .Distinct() // Get only distinct items
+            .ToArray(); // Convert back to an array
+          narrowedSlotData[i] = (course, sectionsInValidPerms); // Write the data back
         }
-        var (course, _) = slotData[i].Value;
-        var sectionsInValidPerms = allPermutations
-          .Select(p => p[i])
-          .Where(e => e.HasValue)
-          .Select(e => e!.Value.section)
-          .Distinct()
-          .ToArray();
-        narrowedSlotData[i] = (course, sectionsInValidPerms);
+        return new TimeTableResult(allPermutations, narrowedSlotData);
+      } else {
+        return new TimeTableResult(allPermutations, slotData);
       }
-
-      var result = new TimeTableResult(allPermutations, narrowedSlotData);
-      return result;
     }
 
     /// <summary>
