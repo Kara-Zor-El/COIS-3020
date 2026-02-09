@@ -6,6 +6,11 @@ using System.Collections.Generic;
 using System.IO;
 
 namespace Schedule {
+  public record TimeTableResult(
+    (Course course, TimeTableInfo section)[,] TimeTables,
+    (Course course, TimeTableInfo[] courseSections)?[] SlotData
+  );
+
   public class Schedule {
     /// <summary>The time increment used between blocks when rendering schedules.</summary>
     private readonly int TimeIncrement = 60;
@@ -18,6 +23,8 @@ namespace Schedule {
     private List<(Course course, TimeTableInfo[] timeTableInfo)?[]> TermData;
     /// <summary>A quick mapping of course names to their scheduled term.</summary>
     private Dictionary<string, int> ScheduledCourses;
+    /// <summary>Cache for TimeTableResult: (hash of slot data, full output)</summary>
+    private (int hash, TimeTableResult output)? cache;
     /// <summary>The number of courses currently taken in our schedule.</summary>
     public int CourseCount { get; private set; }
 
@@ -31,6 +38,81 @@ namespace Schedule {
     }
 
     // ------------------------- Mutation Methods -------------------------
+
+    /// <summary>
+    /// Computes a stable hash for slot data for memoization.
+    /// </summary>
+    private static int HashSlotData((Course course, TimeTableInfo[] courseSections)?[] slotData) {
+      var h = new HashCode();
+      h.Add(slotData.Length);
+      foreach (var slot in slotData) {
+        if (slot is null) { h.Add(0); continue; }
+        var (course, sections) = slot.Value;
+        h.Add(course.Name);
+        h.Add(sections.Length);
+        foreach (var s in sections) h.Add(s);
+      }
+      return h.ToHashCode();
+    }
+
+    /// <summary>
+    /// Generates every valid permutation of section choices per slot such that no two chosen sections overlap.
+    /// Time Complexity: O(n^m) where n is the number of possible sections and m is the number of slots.
+    /// </summary>
+    /// <param name="slotData">Per-slot (course, possible sections); null = empty slot.</param>
+    /// <returns>TimeTableResult (TimeTables, slotData). Empty grid if no valid permutation.</returns>
+    public TimeTableResult GetValidTimeTables((Course course, TimeTableInfo[] courseSections)?[] slotData) {
+      if (slotData == null || slotData.Length == 0) {
+        return new TimeTableResult(new (Course, TimeTableInfo)[0, 0], slotData ?? Array.Empty<(Course, TimeTableInfo[])?>());
+      }
+
+      // dense is the slotData without the null values
+      var dense = slotData.Where(s => s.HasValue).Select(s => s!.Value).ToArray();
+      if (dense.Length == 0) return new TimeTableResult(new (Course, TimeTableInfo)[0, 0], slotData);
+
+      // No valid timetable if any slot has zero possible sections
+      foreach (var (_, sections) in dense) {
+        if (sections.Length == 0)
+          return new TimeTableResult(new (Course, TimeTableInfo)[0, 0], slotData);
+      }
+
+      int hash = HashSlotData(slotData);
+      if (this.cache != null && this.cache.Value.hash == hash) {
+        return this.cache.Value.output;
+      }
+      var assignment = new (Course course, TimeTableInfo info)[dense.Length];
+      (Course course, TimeTableInfo info)[]? singleResult = null;
+      void Backtrack(int slotIdx) {
+        if (slotIdx == dense.Length) {
+          singleResult = assignment.ToArray();
+          return; // One valid timetable is enough; stop searching.
+        }
+        var (course, sections) = dense[slotIdx];
+        foreach (var section in sections) {
+          if (singleResult != null) return;
+          bool overlaps = false;
+          for (int i = 0; i < slotIdx; i++) {
+            if (TimeTableInfo.DoesOverlap(assignment[i].info, section)) {
+              overlaps = true;
+              break;
+            }
+          }
+          if (overlaps) continue;
+          assignment[slotIdx] = (course, section);
+          Backtrack(slotIdx + 1);
+        }
+      }
+      Backtrack(0);
+      int numTimeTables = singleResult != null ? 1 : 0;
+      int numSlots = dense.Length;
+      var grid = new (Course course, TimeTableInfo section)[numTimeTables, numSlots];
+      if (singleResult != null)
+        for (int slotIndex = 0; slotIndex < numSlots; slotIndex++)
+          grid[0, slotIndex] = singleResult[slotIndex];
+      var output = new TimeTableResult(grid, slotData);
+      this.cache = (hash, output);
+      return output;
+    }
 
     /// <summary>Adds a given course to the schedule in the desired term.</summary>
     /// <param name="course">The course to add to the schedule.</param>
