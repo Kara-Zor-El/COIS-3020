@@ -95,17 +95,16 @@ namespace Schedule {
       int hash = HashSlotData(slotData);
       if (this.cache.hash == hash) return this.cache.output;
       var allPermutations = new List<(Course course, TimeTableInfo section)?[]>();
-      // Section count per slot
-      int[] counts = slotData.Select(s => s == null ? 1 : s.Value.courseSections.Length).ToArray();
       long total = 1;
-      foreach (int c in counts) total *= c;
+      foreach (var s in slotData) total *= (s == null ? 1 : s.Value.courseSections.Length);
 
       for (long combo = 0; combo < total; combo++) {
         var choice = new int[slotData.Length];
         long n = combo;
         for (int i = 0; i < slotData.Length; i++) {
-          choice[i] = (int)(n % counts[i]);
-          n /= counts[i];
+          int c = slotData[i] == null ? 1 : slotData[i].Value.courseSections.Length;
+          choice[i] = (int)(n % c);
+          n /= c;
         }
 
         // Build candidate: null slot = empty slot
