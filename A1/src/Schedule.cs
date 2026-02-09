@@ -55,7 +55,6 @@ namespace Schedule {
     /// <param name="term">The term to add the course to</param>
     /// <exception cref="Exception">If the course cannot be placed in the term</exception>
     public void AddCourse(Course course, int term) {
-      Console.WriteLine($"Placing Course {course.Name} in {term}");
       if (!this.CanPlaceCourse(course, term)) throw new Exception("Invalid Course Placement");
       // Grow the term table to fit
       while (this.TermData.Count <= term) {
@@ -99,11 +98,7 @@ namespace Schedule {
       // Section count per slot
       int[] counts = slotData.Select(s => s == null ? 1 : s.Value.courseSections.Length).ToArray();
       long total = 1;
-      foreach (int c in counts) {
-        Console.WriteLine(c);
-        total *= c;
-      }
-      Console.WriteLine(total);
+      foreach (int c in counts) total *= c;
 
       for (long combo = 0; combo < total; combo++) {
         var choice = new int[slotData.Length];
@@ -158,7 +153,6 @@ namespace Schedule {
     /// <returns></returns>
     /// <exception cref="ArgumentException"></exception>
     public bool CanPlaceCourse(Course course, int term) {
-      Console.WriteLine($"Checking Placement of Course {course.Name} in {term}");
       // Basic Input Validation
       if (course.IsDegree)
         throw new ArgumentException("Cannot add a degree course to a schedule");
@@ -169,8 +163,6 @@ namespace Schedule {
       Term termType = this.GetTermType(term);
       if (!course.TimeTableInfos.Any(t => t.OfferedTerm == termType)) return false; // The course doesn't run this term
       // Check There is a valid TimeTable Permutation
-      // NOTE: This is guaranteed to place because of our check in `CanPlaceCourse`
-      // TODO: Validate this line
       var termData = this.TermData.Count <= term ? new (Course course, TimeTableInfo[] timeTableInfo)?[this.MaxTermSize] : this.TermData[term];
       (Course course, TimeTableInfo[] timeTableInfo)?[] newTermData = [.. termData];
       for (int i = 0; i < newTermData.Length; i++) {
@@ -180,10 +172,7 @@ namespace Schedule {
       }
       // Narrow timeSlots to valid combinations
       var (permutations, _) = this.GetValidTimeTables(newTermData);
-      if (permutations.Count < 1) {
-        Console.WriteLine("Failed to place because no valid timeslots");
-        return false;
-      }
+      if (permutations.Count < 1) return false;
       // The course can fit in the given term
       return true;
     }
