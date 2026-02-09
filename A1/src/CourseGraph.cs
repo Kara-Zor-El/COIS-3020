@@ -355,7 +355,7 @@ namespace CourseGraph {
           var dependencyVert = edge.AdjVertex;
           double weight = edge.Relation == CourseRelation.Prereq ? PrereqWeight : CoreqWeight;
           double newCost = dependencyVert.Cost + weight;
-          vertex.Cost = Math.Max(vertex.Cost, newCost);
+          vert.Cost = Math.Max(vert.Cost, newCost);
         }
       }
     }
