@@ -7,7 +7,7 @@ using System.IO;
 
 namespace Schedule {
   public record struct TimeTableResult(
-    List<(Course course, TimeTableInfo section)[]> TimeTables,
+    List<(Course course, TimeTableInfo section)?[]> TimeTables,
     (Course course, TimeTableInfo[] courseSections)?[] SlotData
   );
 
@@ -95,7 +95,7 @@ namespace Schedule {
       // bunch of times for a single set of courses rather than random access
       int hash = HashSlotData(slotData);
       if (this.cache.hash == hash) return this.cache.output;
-      var allPermutations = new List<(Course course, TimeTableInfo section)[]>();
+      var allPermutations = new List<(Course course, TimeTableInfo section)?[]>();
       // Section count per slot
       int[] counts = slotData.Select(s => s == null ? 1 : s.Value.courseSections.Length).ToArray();
       long total = 1;
@@ -113,18 +113,23 @@ namespace Schedule {
           n /= counts[i];
         }
 
-        // Build candidate
-        var candidate = new (Course course, TimeTableInfo section)[slotData.Length];
+        // Build candidate: null slot = empty slot
+        var candidate = new (Course course, TimeTableInfo section)?[slotData.Length];
         for (int i = 0; i < slotData.Length; i++) {
-          var (course, sections) = slotData[i].Value;
+          var slot = slotData[i];
+          if (!slot.HasValue) {
+            candidate[i] = null;
+            continue;
+          }
+          var (course, sections) = slot.Value;
           candidate[i] = (course, sections[choice[i]]);
         }
 
-        // Check for overlaps
+        // Check for overlaps (skip empty slots)
         bool valid = true;
         for (int i = 0; i < candidate.Length; i++) {
           for (int j = i + 1; j < candidate.Length; j++) {
-            if (TimeTableInfo.DoesOverlap(candidate[i].section, candidate[j].section)) {
+            if (candidate[i].HasValue && candidate[j].HasValue && TimeTableInfo.DoesOverlap(candidate[i].Value.section, candidate[j].Value.section)) {
               valid = false;
               break;
             }
@@ -250,7 +255,9 @@ namespace Schedule {
             for (int courseEntry = 0; courseEntry < timeTable.Length; courseEntry++) {
               // NOTE: We always choose the first permutation because it doesn't matter 
               //       This could be changed to get a more desirable course layout.
-              var (course, sessions) = timeTable[courseEntry];
+              var entry = timeTable[courseEntry];
+              if (!entry.HasValue) continue;
+              var (course, sessions) = entry.Value;
               foreach (var courseSection in sessions.TimeSlots) {
                 // NOTE: Because we can't partially cover cell we use > for the end
                 if (courseSection.Start <= time && courseSection.End > time) {
