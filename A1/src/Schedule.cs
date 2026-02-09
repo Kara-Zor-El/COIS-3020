@@ -127,7 +127,25 @@ namespace Schedule {
         }
         if (valid) allPermutations.Add(candidate);
       }
-      var result = new TimeTableResult(allPermutations, slotData);
+
+      // Narrow timeslot: keep only sections that appear in at least one valid permutation
+      var narrowedSlotData = new (Course course, TimeTableInfo[] courseSections)?[slotData.Length];
+      for (int i = 0; i < slotData.Length; i++) {
+        if (!slotData[i].HasValue) {
+          narrowedSlotData[i] = null;
+          continue;
+        }
+        var (course, _) = slotData[i].Value;
+        var sectionsInValidPerms = allPermutations
+          .Select(p => p[i])
+          .Where(e => e.HasValue)
+          .Select(e => e!.Value.section)
+          .Distinct()
+          .ToArray();
+        narrowedSlotData[i] = (course, sectionsInValidPerms);
+      }
+
+      var result = new TimeTableResult(allPermutations, narrowedSlotData);
       return result;
     }
 
