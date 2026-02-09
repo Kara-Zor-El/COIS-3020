@@ -104,38 +104,55 @@ namespace Schedule {
       // bunch of times for a single set of courses rather than random access
       int hash = HashSlotData(slotData);
       if (this.cache.hash == hash) return this.cache.output;
-      // Compute permutations
-      var permutations = new List<(Course course, TimeTableInfo info)>();
-      // TODO: Generate all permutations (store in permutations), (any timeslots that don't work remove them in slotData or a clone of it)
-      (Course course, TimeTableInfo info)[]? singleResult = null;
-      void Backtrack(int slotIdx) {
-        if (slotIdx == slotData.Length) {
-          singleResult = permutations.ToArray();
-          return; // One valid timetable is enough; stop searching.
+      // Build list of non-null slots (course, sections)
+      var slots = new List<(Course course, TimeTableInfo[] sections)>();
+      foreach (var slot in slotData.Where(s => s != null)) {
+        slots.Add(slot.Value);
+      }
+      
+      var allPermutations = new List<(Course course, TimeTableInfo section)[]>();
+      if (slots.Count == 0) {
+        var result = new TimeTableResult(allPermutations, slotData);
+        this.cache = (hash, result);
+        return result;
+      }
+      
+      // Section count per slot
+      int[] counts = slots.Select(s => s.sections.Length).ToArray();
+      long total = 1;
+      foreach (int c in counts) total *= c;
+      
+      for (long combo = 0; combo < total; combo++) {
+        var choice = new int[slots.Count];
+        long n = combo;
+        for (int i = 0; i < slots.Count; i++) {
+          choice[i] = (int)(n % counts[i]);
+          n /= counts[i];
         }
-        var (course, sections) = slotData[slotIdx];
-        foreach (var section in sections) {
-          if (singleResult != null) return;
-          bool overlaps = false;
-          for (int i = 0; i < slotIdx; i++) {
-            if (TimeTableInfo.DoesOverlap(permutations[i].info, section)) {
-              overlaps = true;
+          
+        // Build candidate
+        var candidate = new (Course course, TimeTableInfo section)[slots.Count];
+        for (int i = 0; i < slots.Count; i++) {
+          var (course, sections) = slots[i];
+          candidate[i] = (course, sections[choice[i]]);
+        }
+        
+        // Check for overlaps
+        bool valid = true;
+        foreach (var (_, section) in candidate) {
+          foreach (var (_, otherSection) in candidate) {
+            if (TimeTableInfo.DoesOverlap(section, otherSection)) {
+              valid = false;
               break;
             }
           }
-          if (overlaps) continue;
-          permutations[slotIdx] = (course, section);
-          Backtrack(slotIdx + 1);
         }
+        
+        if (valid)
+          allPermutations.Add(candidate);
       }
-      Backtrack(0);
-      int numTimeTables = singleResult != null ? 1 : 0;
-      int numSlots = slotData.Length;
-      var grid = new List<(Course course, TimeTableInfo section)[]>();
-      if (singleResult != null)
-        for (int slotIndex = 0; slotIndex < numSlots; slotIndex++)
-          grid[0, slotIndex] = singleResult[slotIndex];
-      var output = new TimeTableResult(grid, slotData);
+      
+      var output = new TimeTableResult(allPermutations, slotData);
       this.cache = (hash, output);
       return output;
     }
