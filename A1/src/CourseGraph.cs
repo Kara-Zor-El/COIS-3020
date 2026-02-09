@@ -140,20 +140,30 @@ namespace CourseGraph {
     /// Determines weather there if there a cycle between vertices
     /// Time complexity: O(v + e)
     /// </summary>
+    /// <param name="from">The vertex we are starting from</param>
+    /// <param name="to">The vertex we are ending at</param>
+    /// <returns>Weather there is a cycle between the two vertices</returns>
     private bool IsCyclic(CourseVertex from, CourseVertex to) {
-      // TODO: Document this function
+      // Reset all vertices to unvisited
       foreach (var vert in this.Vertices) vert.Visited = false;
+      // Initialize the stack with the starting vertex
       var stack = new Stack<CourseVertex>([from]);
+
+      // Perform a depth-first search
       while (stack.Count > 0) {
         var current = stack.Pop();
+        // If we've reached the destination, a cycle has been found
         if (current.Equals(to)) return true;
+        // Skip already visited vertices to avoid infinite loops
         if (current.Visited) continue;
         current.Visited = true;
+        // For all adjacent vertices, add them to the stack for exploration
         foreach (var edge in current.Edges) {
           var adj = this.FindVertex(edge.AdjVertex.Value);
           if (adj != null) stack.Push(adj);
         }
       }
+      // No cycle found
       return false;
     }
 
@@ -250,32 +260,20 @@ namespace CourseGraph {
       // After we place the required courses we fill the creditCount with filler courses
       // We still want to place using the highest cost so we don't run out of courses do to bad scheduling of pre-requirements.
       var fillerStack = new Stack<CourseVertex>(this.Vertices.Where(v => !v.Visited && !v.Value.IsDegree).OrderBy(v => v.Cost));
-      this.PlaceCourseChains(schedule, fillerStack, creditCount, catchErrors: true);
+      this.PlaceCourseChains(schedule, fillerStack, creditCount);
       // Sanity check our scheduler actually hit the required count.
       if (schedule.GetScheduledCreditCount() < creditCount)
         throw new Exception($"Impossible: Failed to hit credit count, CourseCount {schedule.GetScheduledCreditCount()}, creditCount: {creditCount}");
       return schedule;
     }
 
-    private void PlaceCourseChains(Schedule.Schedule schedule, Stack<CourseVertex> vertexStack, int creditCount, bool catchErrors = false) {
+    private void PlaceCourseChains(Schedule.Schedule schedule, Stack<CourseVertex> vertexStack, int creditCount) {
       while (vertexStack.Count > 0 && schedule.GetScheduledCreditCount() < creditCount) {
         var vertex = vertexStack.Pop();
         if (vertex.Visited) continue; // We've already placed this course
         // We place these chains from the start to the end using a topological sort
-        if (catchErrors) {
-          // TODO: Remove the catchErrors idea, courses should be placeable no matter what
-          try {
-            foreach (var course in this.TopologicalSort(vertex)) {
-              this.PlaceInSchedule(schedule, course);
-            }
-          }
-          catch (Exception) {
-            continue;
-          }
-        } else {
-          foreach (var course in this.TopologicalSort(vertex)) {
-            this.PlaceInSchedule(schedule, course);
-          }
+        foreach (var course in this.TopologicalSort(vertex)) {
+          this.PlaceInSchedule(schedule, course);
         }
         // This is impossible but we do the check anyway to ensure that we placed every node
         if (!vertex.Visited) // Visited means placed in this context
@@ -287,17 +285,23 @@ namespace CourseGraph {
       // The course was already placed
       if (courseVertex.Visited) return;
       // Determine earliest course placement based off terms of all pre-req and co-req
-      // TODO: I think we can simplify this into a single iteration
+      // Corequisites: must be taken in the same term or later
+      // so we find the maximum term among all corequisites (0 if none exist)
       var minCoreq = courseVertex.Edges
                       .Where(e => e.Relation == CourseRelation.Coreq)
                       .Select(e => schedule.GetCourseTerm(e.AdjVertex.Value))
                       .DefaultIfEmpty(0)
                       .Max();
+      // Pre-requisites: must be taken in the next term or later
+      // so we find the maximum term among all pre-requisites (0 if none exist) and add 
+      // 1 for the next term
       var minPrereq = courseVertex.Edges
                       .Where(e => e.Relation == CourseRelation.Prereq)
                       .Select(e => schedule.GetCourseTerm(e.AdjVertex.Value))
                       .DefaultIfEmpty(-1)
                       .Max() + 1;
+
+      // The earliest term we can place the course in is the maximum of both constraints
       var courseMinimumTerm = Math.Max(minCoreq, minPrereq);
       // Place the actual course
       Course course = courseVertex.Value;
@@ -337,7 +341,6 @@ namespace CourseGraph {
     /// <summary>Computes the cost, which is considered to be how high up a chain we are.</summary>
     /// <param name="vertex">The vertex we are computing from (root).</param>
     private void ComputeCostHeuristic(CourseVertex vertex) {
-      // TODO: Also calculate direct creditCost for adding a course (so we can filter out any courses that can't be placed)
       foreach (var vert in this.TopologicalSort(vertex)) {
         foreach (var edge in vert.Edges) {
           var dependencyVert = edge.AdjVertex;

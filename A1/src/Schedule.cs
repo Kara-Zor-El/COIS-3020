@@ -90,20 +90,26 @@ namespace Schedule {
       // we don't grow to large. This may become an issue with an insanely massive graph 
       // though even with something as large as trent's course system this works in a negligible amount of time.
 
-      // Compute total number of permutations
+      // Calculate the total number of permutations to generate
+      // For each slot, if its null, it contributes 1 to the product, otherwise it contributes the number of available sections
       long total = slotData.Aggregate(1, (acc, slot) => acc * (slot == null ? 1 : slot.Value.courseSections.Length));
-      // Compute permutations
+
+      // Generate all permutations
+      // Each permutation is represented as a unique combination index from 0 to total-1
       var allPermutations = new List<(Course course, TimeTableInfo section)?[]>();
       for (long combo = 0; combo < total; combo++) {
+        // Convert the combination index into per-slot section choices
+        // This works like converting a number to mixed-radix where each position has a different base
         var choice = new int[slotData.Length];
         long n = combo;
         for (int i = 0; i < slotData.Length; i++) {
           var slot = slotData[i];
-          var c = slot == null ? 1 : slot.Value.courseSections.Length;
-          choice[i] = (int)(n % c);
-          n /= c;
+          var c = slot == null ? 1 : slot.Value.courseSections.Length;  // Number of choices for this slot
+          choice[i] = (int)(n % c); // Determine which section index to use
+          n /= c; // Move to the next position
         }
-        // Build candidate
+
+        // Build candidate permutation based on choices
         var candidate = new (Course course, TimeTableInfo section)?[slotData.Length];
         for (int i = 0; i < slotData.Length; i++) {
           var slot = slotData[i];
