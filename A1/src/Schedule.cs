@@ -55,6 +55,7 @@ namespace Schedule {
     /// <param name="term">The term to add the course to</param>
     /// <exception cref="Exception">If the course cannot be placed in the term</exception>
     public void AddCourse(Course course, int term) {
+      Console.WriteLine($"Placing Course {course.Name} in {term}");
       if (!this.CanPlaceCourse(course, term)) throw new Exception("Invalid Course Placement");
       // Grow the term table to fit
       while (this.TermData.Count <= term) {
@@ -67,6 +68,7 @@ namespace Schedule {
         if (newTermData[i] != null) continue;
         var termType = this.GetTermType(term);
         newTermData[i] = (course, course.TimeTableInfos.Where(t => t.OfferedTerm == termType).ToArray());
+        break;
       }
       // Narrow timeSlots to valid combinations
       var (permutations, narrowedTermData) = this.GetValidTimeTables(newTermData);
@@ -95,9 +97,13 @@ namespace Schedule {
       if (this.cache.hash == hash) return this.cache.output;
       var allPermutations = new List<(Course course, TimeTableInfo section)[]>();
       // Section count per slot
-      int[] counts = slotData.Select(s => s.Value.courseSections.Length).ToArray();
+      int[] counts = slotData.Select(s => s == null ? 1 : s.Value.courseSections.Length).ToArray();
       long total = 1;
-      foreach (int c in counts) total *= c;
+      foreach (int c in counts) {
+        Console.WriteLine(c);
+        total *= c;
+      }
+      Console.WriteLine(total);
 
       for (long combo = 0; combo < total; combo++) {
         var choice = new int[slotData.Length];
@@ -147,6 +153,7 @@ namespace Schedule {
     /// <returns></returns>
     /// <exception cref="ArgumentException"></exception>
     public bool CanPlaceCourse(Course course, int term) {
+      Console.WriteLine($"Checking Placement of Course {course.Name} in {term}");
       // Basic Input Validation
       if (course.IsDegree)
         throw new ArgumentException("Cannot add a degree course to a schedule");
@@ -164,10 +171,14 @@ namespace Schedule {
       for (int i = 0; i < newTermData.Length; i++) {
         if (newTermData[i] != null) continue;
         newTermData[i] = (course, course.TimeTableInfos.Where(t => t.OfferedTerm == termType).ToArray());
+        break;
       }
       // Narrow timeSlots to valid combinations
       var (permutations, _) = this.GetValidTimeTables(newTermData);
-      if (permutations.Count < 1) return false;
+      if (permutations.Count < 1) {
+        Console.WriteLine("Failed to place because no valid timeslots");
+        return false;
+      }
       // The course can fit in the given term
       return true;
     }
@@ -234,7 +245,7 @@ namespace Schedule {
         ) {
           var row = new Markup?[header.Length];
           row[0] = new Markup(time.ToString("HH:mm")); // Set the first row the time
-          if (!termNotEmpty) {
+          if (termNotEmpty) {
             var timeTable = timeTableInfo[0];
             for (int courseEntry = 0; courseEntry < timeTable.Length; courseEntry++) {
               // NOTE: We always choose the first permutation because it doesn't matter 
