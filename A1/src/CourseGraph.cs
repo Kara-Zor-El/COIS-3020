@@ -252,13 +252,13 @@ namespace CourseGraph {
       var fillerStack = new Stack<CourseVertex>(this.Vertices.Where(v => !v.Visited && !v.Value.IsDegree).OrderBy(v => v.Cost));
       this.PlaceCourseChains(schedule, fillerStack, creditCount, catchErrors: true);
       // Sanity check our scheduler actually hit the required count.
-      if (schedule.CourseCount < creditCount)
-        throw new Exception($"Impossible: Failed to hit credit count, CourseCount {schedule.CourseCount}, creditCount: {creditCount}");
+      if (schedule.GetScheduledCreditCount() < creditCount)
+        throw new Exception($"Impossible: Failed to hit credit count, CourseCount {schedule.GetScheduledCreditCount()}, creditCount: {creditCount}");
       return schedule;
     }
 
     private void PlaceCourseChains(Schedule.Schedule schedule, Stack<CourseVertex> vertexStack, int creditCount, bool catchErrors = false) {
-      while (vertexStack.Count > 0 && schedule.CourseCount < creditCount) {
+      while (vertexStack.Count > 0 && schedule.GetScheduledCreditCount() < creditCount) {
         var vertex = vertexStack.Pop();
         if (vertex.Visited) continue; // We've already placed this course
         // We place these chains from the start to the end using a topological sort
@@ -287,6 +287,7 @@ namespace CourseGraph {
       // The course was already placed
       if (courseVertex.Visited) return;
       // Determine earliest course placement based off terms of all pre-req and co-req
+      // TODO: I think we can simplify this into a single iteration
       var minCoreq = courseVertex.Edges
                       .Where(e => e.Relation == CourseRelation.Coreq)
                       .Select(e => schedule.GetCourseTerm(e.AdjVertex.Value))
@@ -300,19 +301,14 @@ namespace CourseGraph {
       var courseMinimumTerm = Math.Max(minCoreq, minPrereq);
       // Place the actual course
       Course course = courseVertex.Value;
-      int i = courseMinimumTerm - 1;
-      while (true) {
-        i++;
+      // NOTE: We will never end up looping up to `V.Count` but we want an upper bound so we can fail safely
+      for (int i = courseMinimumTerm; i < this.Vertices.Count; i++) {
         if (!schedule.CanPlaceCourse(course, i)) continue; // Check if the course can be placed in the term
-        var termType = schedule.GetTermType(i);
-        var possibleTimeSlots = course.TimeTableInfos.Where(slot => slot.OfferedTerm == termType);
-        if (schedule.GetCourseValidTimeSlots(course, possibleTimeSlots.ToArray(), i).Count <= 0)
-          continue; // No available timeslot
-        // Finally add the course
         schedule.AddCourse(course: course, term: i);
         courseVertex.Visited = true;
-        break;
+        return;
       }
+      throw new Exception("Impossible: Failed to place course in schedule");
     }
 
     /// <summary>
@@ -326,8 +322,7 @@ namespace CourseGraph {
     private IEnumerable<CourseVertex> TopologicalSort(CourseVertex root) {
       // An enumerator means that we can use this like an iterator despite it being a function.
       var visited = new HashSet<CourseVertex>();
-      foreach (var v in this.Visit(root, visited))
-        yield return v;
+      return this.Visit(root, visited);
     }
     private IEnumerable<CourseVertex> Visit(CourseVertex vertex, HashSet<CourseVertex> visited) {
       if (visited.Contains(vertex)) yield break;
@@ -339,11 +334,10 @@ namespace CourseGraph {
       yield return vertex; // post-order yield
     }
 
-    /// <summary>
-    /// Computes the cost, which is considered to be how high up a chain we are.
-    /// </summary>
+    /// <summary>Computes the cost, which is considered to be how high up a chain we are.</summary>
     /// <param name="vertex">The vertex we are computing from (root).</param>
     private void ComputeCostHeuristic(CourseVertex vertex) {
+      // TODO: Also calculate direct creditCost for adding a course (so we can filter out any courses that can't be placed)
       foreach (var vert in this.TopologicalSort(vertex)) {
         foreach (var edge in vert.Edges) {
           var dependencyVert = edge.AdjVertex;

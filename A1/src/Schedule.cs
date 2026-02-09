@@ -23,8 +23,6 @@ namespace Schedule {
     private List<(Course course, TimeTableInfo[] timeTableInfo)?[]> TermData;
     /// <summary>A quick mapping of course names to their scheduled term.</summary>
     private Dictionary<string, int> ScheduledCourses;
-    /// <summary>The number of courses currently taken in our schedule.</summary>
-    public int CourseCount { get; private set; }
 
     /// <summary>Constructs a new schedule with the given options.</summary>
     public Schedule(int maxTermSize, Term startingTerm = Term.Fall) {
@@ -32,7 +30,6 @@ namespace Schedule {
       this.StartingTerm = startingTerm;
       this.TermData = [];
       this.ScheduledCourses = [];
-      this.CourseCount = 0;
     }
 
     // ------------------------- Internal Methods -------------------------
@@ -57,32 +54,24 @@ namespace Schedule {
     /// <param name="course">The course to add to the schedule.</param>
     /// <param name="term">The term to add the course to</param>
     /// <exception cref="Exception">If the course cannot be placed in the term</exception>
-    /// <exception cref="ArgumentException">If the course overlaps with another course in the given term.</exception>
     public void AddCourse(Course course, int term) {
       if (!this.CanPlaceCourse(course, term)) throw new Exception("Invalid Course Placement");
-      // TODO: Create a new array representing the proposed `term`
-      // TODO: Get the valid timeSlots
-      // TODO: Place the timeSlot
-      // Initial TimeSlot Validation (check if the course is offered in the term)
-      Term termType = this.GetTermType(term);
-      var possibleTimeSlots = course.TimeTableInfos.Where(t => t.OfferedTerm == termType);
-      var nonOverlappingTimeSlots = this.GetCourseValidTimeSlots(course, possibleTimeSlots.ToArray(), term);
-      if (nonOverlappingTimeSlots.Count <= 0)
-        throw new ArgumentException($"Course {course.Name}, can't be scheduled do to overlaps in term {term}");
       // Grow the term table to fit
       while (this.TermData.Count <= term) {
         this.TermData.Add(new (Course course, TimeTableInfo[] timeTableInfo)?[this.MaxTermSize]);
       }
-      // Try to add the course to the first available slot in the term
-      for (int slotIndex = 0; slotIndex < this.TermData[term].Length; slotIndex++) {
-        var currentSlot = this.TermData[term][slotIndex];
-        if (currentSlot != null) continue;
-        this.TermData[term][slotIndex] = (course, nonOverlappingTimeSlots.ToArray());
-        this.ScheduledCourses.Add(course.Name, term);
-        this.CourseCount++;
-        return;
+      // Generate the new term
+      (Course course, TimeTableInfo[] timeTableInfo)?[] newTermData = [.. this.TermData[term]];
+      // NOTE: This is guaranteed to place because of our check in `CanPlaceCourse`
+      for (int i = 0; i < newTermData.Length; i++) {
+        if (newTermData[i] != null) continue;
+        var termType = this.GetTermType(term);
+        newTermData[i] = (course, course.TimeTableInfos.Where(t => t.OfferedTerm == termType).ToArray());
       }
-      throw new Exception("Impossible: Course had to have been placed");
+      // Narrow timeSlots to valid combinations
+      var (_, narrowedTermData) = this.GetValidTimeTables(newTermData);
+      this.TermData[term] = narrowedTermData;
+      this.ScheduledCourses.Add(course.Name, term);
     }
 
     // --------------------------- Info Methods ----------------------------
@@ -109,19 +98,19 @@ namespace Schedule {
       foreach (var slot in slotData.Where(s => s != null)) {
         slots.Add(slot.Value);
       }
-      
+
       var allPermutations = new List<(Course course, TimeTableInfo section)[]>();
       if (slots.Count == 0) {
         var result = new TimeTableResult(allPermutations, slotData);
         this.cache = (hash, result);
         return result;
       }
-      
+
       // Section count per slot
       int[] counts = slots.Select(s => s.sections.Length).ToArray();
       long total = 1;
       foreach (int c in counts) total *= c;
-      
+
       for (long combo = 0; combo < total; combo++) {
         var choice = new int[slots.Count];
         long n = combo;
@@ -129,14 +118,14 @@ namespace Schedule {
           choice[i] = (int)(n % counts[i]);
           n /= counts[i];
         }
-          
+
         // Build candidate
         var candidate = new (Course course, TimeTableInfo section)[slots.Count];
         for (int i = 0; i < slots.Count; i++) {
           var (course, sections) = slots[i];
           candidate[i] = (course, sections[choice[i]]);
         }
-        
+
         // Check for overlaps
         bool valid = true;
         foreach (var (_, section) in candidate) {
@@ -147,11 +136,11 @@ namespace Schedule {
             }
           }
         }
-        
+
         if (valid)
           allPermutations.Add(candidate);
       }
-      
+
       var output = new TimeTableResult(allPermutations, slotData);
       this.cache = (hash, output);
       return output;
@@ -178,33 +167,24 @@ namespace Schedule {
       if (this.IsTermFull(term)) return false; // NOTE: We cannot place it into a full term
       Term termType = this.GetTermType(term);
       if (!course.TimeTableInfos.Any(t => t.OfferedTerm == termType)) return false; // The course doesn't run this term
-      // TODO: Do timeTableCheck
+      // Check There is a valid TimeTable Permutation
+      // NOTE: This is guaranteed to place because of our check in `CanPlaceCourse`
+      // TODO: Validate this line
+      var termData = this.TermData.Count <= term ? [] : this.TermData[term];
+      (Course course, TimeTableInfo[] timeTableInfo)?[] newTermData = [.. termData];
+      for (int i = 0; i < newTermData.Length; i++) {
+        if (newTermData[i] != null) continue;
+        newTermData[i] = (course, course.TimeTableInfos.Where(t => t.OfferedTerm == termType).ToArray());
+      }
+      // Narrow timeSlots to valid combinations
+      var (permutations, _) = this.GetValidTimeTables(newTermData);
+      if (permutations.Count < 1) return false;
+      // The course can fit in the given term
       return true;
     }
 
     /// <summary>
-    /// Checks if the given time slot is already taken.
-    /// </summary>
-    /// <param name="timeTableInfo">The time slot to check against</param>
-    /// <param name="term">which term we are checking in</param>
-    // TODO: Remove this function
-    public List<TimeTableInfo> GetCourseValidTimeSlots(Course course, TimeTableInfo[] timeTableInfo, int term) {
-      var possibleSections = new List<TimeTableInfo>(timeTableInfo); // Clone the array
-      if (this.TermData.Count <= term) return possibleSections;
-      // Check if timeTableInfo has at least one item where the time doesn't overlap with anything else in this.TermData[term]
-      for (int slotIndex = 0; slotIndex < this.MaxTermSize && possibleSections.Count > 0; slotIndex++) {
-        var slotData = this.TermData[term][slotIndex];
-        if (slotData == null) break;
-        var (checkCourse, checkSections) = slotData.Value;
-        if (checkCourse == course) continue;
-        possibleSections.RemoveAll(t => checkSections.All(c => TimeTableInfo.DoesOverlap(c, t)));
-      }
-      return possibleSections;
-    }
-
-    /// <summary>
     /// Determines which term type (Fall/Winter) a term index corresponds to based on the starting term.
-    /// Time Complexity: O(1)
     /// </summary>
     /// <param name="termIndex">The index of the term to get the type for.</param>
     /// <returns>The term type (Fall/Winter) for the given term index.</returns>
@@ -212,25 +192,23 @@ namespace Schedule {
       return (Term)(((int)this.StartingTerm + termIndex) % Enum.GetValues(typeof(Term)).Length);
     }
 
-    /// <summary>
-    /// Checks if a given term is full or not.
-    /// </summary>
+    /// <summary>Checks if a given term is full or not.</summary>
     /// <param name="term">The term we want to check</param>
     /// <returns>`true` if the term is full, otherwise `false`</returns>
     public bool IsTermFull(int term) {
+      // TODO: Rewrite this to a simple linq statement
       if (this.TermData.Count <= term) return false;
       foreach (var slot in this.TermData[term]) if (slot == null) return false;
       return true;
     }
 
-    /// <summary>
-    /// Queries which term a course is scheduled for.
-    /// </summary>
+    /// <summary>Queries which term a course is scheduled for.</summary>
     /// <param name="course">The course you are looking for.</param>
     /// <returns>The term the course is scheduled in, or `-1` if not found.</returns>
-    public int GetCourseTerm(Course course) {
-      return this.ScheduledCourses.GetValueOrDefault(course.Name, -1);
-    }
+    public int GetCourseTerm(Course course) => this.ScheduledCourses.GetValueOrDefault(course.Name, -1);
+
+    /// <summary>Returns the number of scheduled course.</summary>
+    public int GetScheduledCreditCount() => this.ScheduledCourses.Count;
 
     // ------------------------- Display Methods --------------------------
 
@@ -248,10 +226,9 @@ namespace Schedule {
         // Because we use `getValidTimeTables` to check if we can place in term,
         // we should never have a case where the result is empty if we have things
         // scheduled in the term.
-        // TODO: Enable this once `GetValidTimeTables` is implemented.
-        // if (timeTableInfo.Length < 0 && termData.Any(i => i != null)) {
-        //   throw new Exception("Impossible: There are no valid timetables for a term");
-        // }
+        if (timeTableInfo.Count <= 0 && termData.Any(i => i != null)) {
+          throw new Exception("Impossible: There are no valid timetables for a term");
+        }
         // Build Term Table Header
         var table = new Table().Border(TableBorder.Rounded).ShowRowSeparators();
         table.Title($"Term {termIndex} - {this.GetTermType(termIndex)} Schedule");
@@ -267,14 +244,16 @@ namespace Schedule {
         ) {
           var row = new Markup?[header.Length];
           row[0] = new Markup(time.ToString("HH:mm")); // Set the first row the time
-          for (int i = 0; i < timeTableInfo.Length; i++) {
+          var timeTable = timeTableInfo[0];
+          for (int i = 0; i < timeTable.Length; i++) {
             // NOTE: We always choose the first permutation because it doesn't matter 
             //       This could be changed to get a more desirable course layout.
-            var (course, sessions) = timeTableInfo[0, i];
+            var (course, sessions) = timeTable[i];
             foreach (var courseSection in sessions.TimeSlots) {
               // NOTE: Because we can't partially cover cell we use > for the end
               if (courseSection.Start <= time && courseSection.End > time) {
-                row[(int)courseSection.Day] = UsedCell(course.Name, i);
+                // NOTE: This is 1+ as we have the time take the first row
+                row[1 + (int)courseSection.Day] = UsedCell(course.Name, i);
               }
             }
           }
@@ -298,9 +277,10 @@ namespace Schedule {
     /// <summary>Stringifies the schedule.</summary>
     public override string ToString() {
       var tables = this.GenerateSchedule();
-      // Render to a string
       var sw = new StringWriter();
+      // The way we render to a string is by getting spectreConsole to write to a stringWriter
       var console = AnsiConsole.Create(new AnsiConsoleSettings {
+        // String's don't support console coloring
         Ansi = AnsiSupport.No,
         ColorSystem = ColorSystemSupport.NoColors,
         Interactive = InteractionSupport.No,
