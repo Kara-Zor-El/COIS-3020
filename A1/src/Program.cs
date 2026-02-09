@@ -58,7 +58,8 @@ namespace Program {
       if (!File.Exists(settings.CourseData)) {
         EmitError($"Course data file `{Markup.Escape(settings.Degree)}` does not exist");
         return 1;
-      };
+      }
+      ;
       var jsonString = File.ReadAllText(settings.CourseData);
       // NOTE: These can throw exceptions
       var loadedCourseData = JsonSerializer.Deserialize<CourseData>(jsonString);
@@ -90,16 +91,6 @@ namespace Program {
       }
       // Debug Information
       if (settings.DebugMode) {
-        // Log missed scheduling opportunities
-        foreach (var msg in courseGraph.MissedOpportunities) {
-          // NOTE: This could be indicate that with a different greedy algorithm 
-          //       we could reduce these or it could indicate that there is actually 
-          //       no way to place the course in the first term it can take place in.
-          //       These are primary going to be scheduling overlaps and gives us an 
-          //       idea on how to tune our algorithm.
-          EmitWarning($"Missed scheduling opportunity, {Markup.Escape(msg)}");
-        }
-        EmitWarning($"Missed `{courseGraph.MissedOpportunities.Count}` opportunities");
         AnsiConsole.MarkupLine($"Elapsed Time: {stopWatch.Elapsed.TotalMilliseconds} ms");
       }
       schedule.WriteScheduleToFile(settings.ScheduleOutput);
@@ -117,6 +108,8 @@ namespace Program {
     static int Main(string[] args) {
       // Use SpectreConsole.CLI for our command line options
       var app = new CommandApp<ProgramCommand>();
+      // Enable Backtraces on exceptions
+      app.Configure(config => config.PropagateExceptions());
       return app.Run(args);
     }
   }

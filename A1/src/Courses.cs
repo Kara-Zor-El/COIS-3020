@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 
 namespace CourseGraph {
@@ -17,11 +18,16 @@ namespace CourseGraph {
   /// <param name="Day">The day of the week the time slot is scheduled for.</param>
   /// <param name="Start">The start time of the time slot.</param>
   /// <param name="End">The end time of the time slot.</param>
-  public record TimeSlot(DayOfWeek Day, TimeOnly Start, TimeOnly End);
+  public record struct TimeSlot(DayOfWeek Day, TimeOnly Start, TimeOnly End) {
+    /// <summary>Determines if two time slots overlap.</summary>
+    public static bool DoesOverlap(TimeSlot a, TimeSlot b) {
+      return a.Day == b.Day && (a.Start < b.End && b.Start < a.End);
+    }
+  }
   /// <summary>
   /// Represents the timetable information about a course.
   /// </summary>
-  public record TimeTableInfo {
+  public record struct TimeTableInfo {
     /// <summary>
     /// The earliest time a course can be scheduled (24-hour time).
     /// </summary>
@@ -33,13 +39,23 @@ namespace CourseGraph {
     /// <summary>
     /// The term the course is offered in.
     /// </summary>
-    public Term OfferedTerm { get; init; }
+    public required Term OfferedTerm { get; init; }
     /// <summary>
     /// The time slots the course is offered in. 
     /// Each tuple represents a single time slot with the:
     /// day of the week, start time, and end time.
     /// </summary>
-    public TimeSlot[] TimeSlots { get; init; }
+    public required TimeSlot[] TimeSlots { get; init; }
+
+    /// <summary>Determines if two TimeTable's overlap.</summary>
+    public static bool DoesOverlap(TimeTableInfo tableA, TimeTableInfo tableB) {
+      foreach (var timeSlot1 in tableA.TimeSlots) {
+        foreach (var timeSlot2 in tableB.TimeSlots) {
+          if (TimeSlot.DoesOverlap(timeSlot1, timeSlot2)) return true;
+        }
+      }
+      return false;
+    }
   }
   /// <summary>
   /// Represents a course.
@@ -118,6 +134,46 @@ namespace CourseGraph {
 
     public override string ToString() {
       return JsonSerializer.Serialize(this, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping, WriteIndented = true });
+    }
+  }
+
+  /// <summary>
+  /// Represents a data bundle of course information.
+  /// 
+  /// This is just a convenience thing so we can load and store all information in a json file.
+  /// </summary>
+  public record CourseData {
+    /// <summary>
+    /// Any courses that are listed as degree's
+    /// </summary>
+    public List<Course> Degrees { get; init; }
+    /// <summary>
+    /// All course relations.
+    /// </summary>
+    public List<Course> Courses { get; init; }
+
+    // Helpers
+
+    /// <summary>
+    /// Gets a degree by name from the course data.
+    /// Time complexity: O(n)
+    /// </summary>
+    /// <param name="name">The degree name</param>
+    /// <returns>The degree if it exists, otherwise null</returns>
+#nullable enable
+    public Course? GetDegreeByName(string name) {
+      return this.Degrees.FirstOrDefault(c => c.Name == name);
+    }
+
+    /// <summary>
+    /// Gets a course by name from the course data.
+    /// Time complexity: O(n)
+    /// </summary>
+    /// <param name="name">The course name</param>
+    /// <returns>The course if it exists, otherwise null</returns>
+#nullable enable
+    public Course? GetCourseByName(string name) {
+      return this.Courses.FirstOrDefault(c => c.Name == name);
     }
   }
 }
