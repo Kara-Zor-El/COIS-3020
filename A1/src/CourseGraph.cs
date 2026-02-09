@@ -238,7 +238,9 @@ namespace CourseGraph {
       }
       roots.Remove(degreeVertex); // Don't put the degree in roots (handle it separately)
       // -------------- Compute Costs --------------
+      foreach (var vert in this.Vertices) vert.Cost = 0;
       this.ComputeCostHeuristic(degreeVertex);
+      foreach (var root in roots) this.ComputeCostHeuristic(root);
       // -------------- Greedy Schedule --------------
       var schedule = new Schedule.Schedule(maxTermSize: termSize);
       // We begin by placing required course chains with the longest chain from the major.
@@ -347,9 +349,6 @@ namespace CourseGraph {
     /// </summary>
     /// <param name="vertex">The vertex we are computing from (root).</param>
     private void ComputeCostHeuristic(CourseVertex vertex) {
-      // TODO: Why are we only computing the cost from a degreeVertex?
-      // TODO: This needs to be able to compute from any major
-      foreach (var vert in this.Vertices) vert.Cost = 0;
       foreach (var vert in this.TopologicalSort(vertex)) {
         foreach (var edge in vert.Edges) {
           var dependencyVert = edge.AdjVertex;
