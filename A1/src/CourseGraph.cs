@@ -266,7 +266,7 @@ namespace CourseGraph {
           // TODO: Remove the catchErrors idea, courses should be placeable no matter what
           try {
             foreach (var course in this.TopologicalSort(vertex)) {
-              this.PlaceInScheduleData(schedule, course);
+              this.PlaceInSchedule(schedule, course);
             }
           }
           catch (Exception) {
@@ -274,7 +274,7 @@ namespace CourseGraph {
           }
         } else {
           foreach (var course in this.TopologicalSort(vertex)) {
-            this.PlaceInScheduleData(schedule, course);
+            this.PlaceInSchedule(schedule, course);
           }
         }
         // This is impossible but we do the check anyway to ensure that we placed every node
@@ -283,7 +283,7 @@ namespace CourseGraph {
       }
     }
 
-    private void PlaceInScheduleData(Schedule.Schedule schedule, CourseVertex courseVertex) {
+    private void PlaceInSchedule(Schedule.Schedule schedule, CourseVertex courseVertex) {
       // The course was already placed
       if (courseVertex.Visited) return;
       // Determine earliest course placement based off terms of all pre-req and co-req
@@ -308,7 +308,7 @@ namespace CourseGraph {
         courseVertex.Visited = true;
         return;
       }
-      throw new Exception("Impossible: Failed to place course in schedule");
+      throw new Exception($"Impossible: Failed to place course in schedule {course.Name}");
     }
 
     /// <summary>

@@ -18,7 +18,7 @@ namespace CourseGraph {
   /// <param name="Day">The day of the week the time slot is scheduled for.</param>
   /// <param name="Start">The start time of the time slot.</param>
   /// <param name="End">The end time of the time slot.</param>
-  public record TimeSlot(DayOfWeek Day, TimeOnly Start, TimeOnly End) {
+  public record struct TimeSlot(DayOfWeek Day, TimeOnly Start, TimeOnly End) {
     /// <summary>Determines if two time slots overlap.</summary>
     public static bool DoesOverlap(TimeSlot a, TimeSlot b) {
       return a.Day == b.Day && (a.Start < b.End && b.Start < a.End);
@@ -27,7 +27,7 @@ namespace CourseGraph {
   /// <summary>
   /// Represents the timetable information about a course.
   /// </summary>
-  public record TimeTableInfo {
+  public record struct TimeTableInfo {
     /// <summary>
     /// The earliest time a course can be scheduled (24-hour time).
     /// </summary>

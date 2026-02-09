@@ -177,8 +177,7 @@ namespace CourseGenerator {
         var timeTableInfos = new List<TimeTableInfo>();
         foreach (var section in sections) {
           var info = TryBuildTimeTableInfo(section, random);
-          if (info != null)
-            timeTableInfos.Add(info);
+          timeTableInfos.Add(info);
         }
         if (timeTableInfos.Count > 0) {
           courseTimeTableInfos[courseName] = timeTableInfos.ToArray();
@@ -229,7 +228,7 @@ namespace CourseGenerator {
 
     private static TimeTableInfo TryBuildTimeTableInfo(InputSection section, Random random) {
       if (section.Meetings == null || section.Meetings.Count == 0)
-        return null;
+        return default(TimeTableInfo);
 
       var timeSlots = new List<TimeSlot>();
 
@@ -243,23 +242,23 @@ namespace CourseGenerator {
 
         if (!TimeOnly.TryParse(meeting.StartTime, out var startTime) ||
             !TimeOnly.TryParse(meeting.EndTime, out var endTime))
-          return null;
+          return default(TimeTableInfo);
 
         if (startTime < TimeTableInfo.EarliestTime || endTime > TimeTableInfo.LatestTime)
-          return null;
+          return default(TimeTableInfo);
         if (startTime >= endTime)
-          return null;
+          return default(TimeTableInfo);
 
         foreach (var day in meeting.Days) {
           var dayOfWeek = (DayOfWeek)day;
           if (dayOfWeek == DayOfWeek.Saturday || dayOfWeek == DayOfWeek.Sunday)
-            return null;
+            return default(TimeTableInfo);
           timeSlots.Add(new TimeSlot(dayOfWeek, startTime, endTime));
         }
       }
 
       if (timeSlots.Count == 0)
-        return null;
+        return default(TimeTableInfo);
 
       var term = random.Next(2) == 0 ? Term.Fall : Term.Winter;
 
