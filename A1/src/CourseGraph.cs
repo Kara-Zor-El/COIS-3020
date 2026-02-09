@@ -240,14 +240,14 @@ namespace CourseGraph {
       // -------------- Compute Costs --------------
       foreach (var vert in this.Vertices) vert.Cost = 0;
       this.ComputeCostHeuristic(degreeVertex);
-      foreach (var root in roots) this.ComputeCostHeuristic(root);
       // -------------- Greedy Schedule --------------
       var schedule = new Schedule.Schedule(maxTermSize: termSize);
       // We begin by placing required course chains with the longest chain from the major.
       var requiredRootStack = new Stack<CourseVertex>(degreeVertex.Edges.Select(e => e.AdjVertex).OrderBy(c => c.Cost));
       this.PlaceCourseChains(schedule, requiredRootStack, creditCount);
       // -------------- Compute Costs --------------
-      // TODO: Recompute costs from all other roots (Ensure that cost is valid and we are not overwriting the multiple roots)
+      // Recompute costs from all other roots for filler courses
+      foreach (var root in roots) this.ComputeCostHeuristic(root);
       // -------------- Greedy Schedule --------------
       // After we place the required courses we fill the creditCount with filler courses
       // We still want to place using the highest cost so we don't run out of courses do to bad scheduling of pre-requirements.
