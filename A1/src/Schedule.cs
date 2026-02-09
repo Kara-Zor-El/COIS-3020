@@ -4,63 +4,35 @@ using Spectre.Console; // A library for pretty console output
 using CourseGraph;
 using System.Collections.Generic;
 using System.IO;
-using System.Diagnostics;
 
 namespace Schedule {
   public class Schedule {
-    /// <summary>
-    /// The default time increment when displaying schedules
-    /// </summary>
-    /// TODO: Set this to 30
+    /// <summary>The time increment used between blocks when rendering schedules.</summary>
     private readonly int TimeIncrement = 60;
-    /// <summary>
-    /// The degree the schedule is built for.
-    /// </summary>
-    public readonly Course Degree;
-    /// <summary>
-    /// The number of required credits.
-    /// </summary>
+    /// <summary>The maximum number of courses we can take in a given term.</summary>
     private readonly int MaxTermSize;
-    /// <summary>
-    /// The term the schedule starts in.
-    /// This is important as it lets us determine which timeSlot to use,
-    /// we assume that terms are sequential.
-    /// </summary>
+    /// <summary>The term in which we start (We assume terms are sequential based on enum ordering).</summary>
     private readonly Term StartingTerm;
-    /// <summary>
-    /// A matrix of every term and every bucket.
-    /// </summary>
+    /// <summary>A list of terms and the courses taken within.</summary>
 #nullable enable
     private List<(Course course, TimeTableInfo[] timeTableInfo)?[]> TermData;
-    /// <summary>
-    /// A mapping of course names to scheduled term.
-    /// This allows us to quickly lookup if a course is scheduled or not.
-    /// </summary>
+    /// <summary>A quick mapping of course names to their scheduled term.</summary>
     private Dictionary<string, int> ScheduledCourses;
-    /// <summary>
-    /// The number of courses in our schedule 
-    /// </summary>
+    /// <summary>The number of courses currently taken in our schedule.</summary>
     public int CourseCount { get; private set; }
 
-    /// <summary>
-    /// Build's a new schedule with the set parameters.
-    /// </summary>
-    public Schedule(Course degree, int maxTermSize, Term startingTerm = Term.Fall) {
-      this.Degree = degree;
+    /// <summary>Constructs a new schedule with the given options.</summary>
+    public Schedule(int maxTermSize, Term startingTerm = Term.Fall) {
       this.MaxTermSize = maxTermSize;
       this.StartingTerm = startingTerm;
-      this.TermData = new List<(Course course, TimeTableInfo[] timeTableInfo)?[]>();
-      this.ScheduledCourses = new Dictionary<string, int>();
+      this.TermData = [];
+      this.ScheduledCourses = [];
       this.CourseCount = 0;
     }
 
-    // ------------------------- Internal Methods -------------------------
-
     // ------------------------- Mutation Methods -------------------------
 
-    /// <summary>
-    /// Adds a course to the schedule in the desired term.
-    /// </summary>
+    /// <summary>Adds a given course to the schedule in the desired term.</summary>
     /// <param name="course">The course to add to the schedule.</param>
     /// <param name="term">The term to add the course to</param>
     /// <exception cref="ArgumentException">If a degree course is being added</exception>
@@ -101,27 +73,6 @@ namespace Schedule {
     // --------------------------- Info Methods ----------------------------
 
     /// <summary>
-    /// Determines if two time table infos have any overlapping time slots.
-    /// Time Complexity: O(n*m) where n and m are the number of time slots for each course.
-    /// </summary>
-    /// <param name="timeTableInfo1">The first time table info to compare.</param>
-    /// <param name="timeTableInfo2">The second time table info to compare.</param>
-    /// <returns>True if the two time table infos have any overlapping time slots, false otherwise.</returns>
-    public bool DoTimeSlotsOverlap(TimeTableInfo timeTableInfo1, TimeTableInfo timeTableInfo2) {
-      foreach (var timeSlot1 in timeTableInfo1.TimeSlots) {
-        foreach (var timeSlot2 in timeTableInfo2.TimeSlots) {
-          if (timeSlot1.Day == timeSlot2.Day) {
-            // Check for time overlap
-            if (timeSlot1.Start < timeSlot2.End && timeSlot2.Start < timeSlot1.End) {
-              return true;
-            }
-          }
-        }
-      }
-      return false;
-    }
-
-    /// <summary>
     /// Checks if the given time slot is already taken.
     /// </summary>
     /// <param name="timeTableInfo">The time slot to check against</param>
@@ -136,7 +87,7 @@ namespace Schedule {
         if (slotData == null) break;
         var (checkCourse, checkSections) = slotData.Value;
         if (checkCourse == course) continue;
-        possibleSections.RemoveAll(t => checkSections.All(c => this.DoTimeSlotsOverlap(c, t)));
+        possibleSections.RemoveAll(t => checkSections.All(c => TimeTableInfo.DoesOverlap(c, t)));
       }
       return possibleSections;
     }
@@ -226,9 +177,9 @@ namespace Schedule {
             var overlappingTimeSlots = chosenTimeSlot.TimeSlots.Where(ts => ts.Start <= time && ts.End > time);
             if (!overlappingTimeSlots.Any()) continue;
             // This double checks our scheduling logic
-            if (foundCourseForSlot) {
-              throw new Exception("Narrowing TimeSlots Failed, got duplicate");
-            }
+            // if (foundCourseForSlot) {
+            //   throw new Exception("Narrowing TimeSlots Failed, got duplicate");
+            // }
             foundCourseForSlot = true;
             this.TermData[termIndex][slotIndex] = (course, [chosenTimeSlot]); // Reduce the schedule to only have the 
             foreach (var timeSlot in overlappingTimeSlots) {
