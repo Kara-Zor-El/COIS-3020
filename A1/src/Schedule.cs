@@ -79,9 +79,6 @@ namespace Schedule {
 
     // --------------------------- Info Methods ----------------------------
 
-    /// <summary>Cache for TimeTableResult: (hash of slot data, full output)</summary>
-    private (int hash, TimeTableResult output) cache = (-1, default(TimeTableResult));
-
     /// <summary>
     /// Generates every valid permutation of section choices per slot such that no two chosen sections overlap.
     /// Time Complexity: O(n^m) where n is the number of possible sections and m is the number of slots.
@@ -89,54 +86,48 @@ namespace Schedule {
     /// <param name="slotData">Per-slot (course, possible sections); null = empty slot.</param>
     /// <returns>TimeTableResult (TimeTables, slotData). Empty grid if no valid permutation.</returns>
     public TimeTableResult GetValidTimeTables((Course course, TimeTableInfo[] courseSections)?[] slotData) {
-      // Memorization
-      // NOTE: This is a simple memorization because the call pattern is to call a 
-      // bunch of times for a single set of courses rather than random access
-      int hash = HashSlotData(slotData);
-      if (this.cache.hash == hash) return this.cache.output;
-      var allPermutations = new List<(Course course, TimeTableInfo section)?[]>();
-      long total = 1;
-      foreach (var s in slotData) total *= (s == null ? 1 : s.Value.courseSections.Length);
+      // This may seem naive and it is however as we narrow as we select which means 
+      // we don't grow to large. This may become an issue with an insanely massive graph 
+      // though even with something as large as trent's course system this works in a negligible amount of time.
 
+      // Compute total number of permutations
+      long total = slotData.Aggregate(1, (acc, slot) => acc * (slot == null ? 1 : slot.Value.courseSections.Length));
+      // Compute permutations
+      var allPermutations = new List<(Course course, TimeTableInfo section)?[]>();
       for (long combo = 0; combo < total; combo++) {
         var choice = new int[slotData.Length];
         long n = combo;
         for (int i = 0; i < slotData.Length; i++) {
-          int c = slotData[i] == null ? 1 : slotData[i].Value.courseSections.Length;
+          var slot = slotData[i];
+          var c = slot == null ? 1 : slot.Value.courseSections.Length;
           choice[i] = (int)(n % c);
           n /= c;
         }
-
-        // Build candidate: null slot = empty slot
+        // Build candidate
         var candidate = new (Course course, TimeTableInfo section)?[slotData.Length];
         for (int i = 0; i < slotData.Length; i++) {
           var slot = slotData[i];
-          if (!slot.HasValue) {
-            candidate[i] = null;
-            continue;
-          }
+          if (slot == null) continue; // Skip empty slots
           var (course, sections) = slot.Value;
           candidate[i] = (course, sections[choice[i]]);
         }
-
         // Check for overlaps (skip empty slots)
         bool valid = true;
         for (int i = 0; i < candidate.Length; i++) {
           for (int j = i + 1; j < candidate.Length; j++) {
-            if (candidate[i].HasValue && candidate[j].HasValue && TimeTableInfo.DoesOverlap(candidate[i].Value.section, candidate[j].Value.section)) {
+            var candidateA = candidate[i];
+            var candidateB = candidate[j];
+            if (candidateA == null || candidateB == null) continue;
+            if (TimeTableInfo.DoesOverlap(candidateA.Value.section, candidateB.Value.section)) {
               valid = false;
               break;
             }
           }
           if (!valid) break;
         }
-
-        if (valid)
-          allPermutations.Add(candidate);
+        if (valid) allPermutations.Add(candidate);
       }
-
       var result = new TimeTableResult(allPermutations, slotData);
-      this.cache = (hash, result);
       return result;
     }
 
