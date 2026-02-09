@@ -120,15 +120,12 @@ These are list of external utilities that we decided to use mostly for convenien
 
 ## Testing
 
-TODO: Write documentation on what we target with testing, philsophy for when to use asserts vs snapshot tests
+Our testing is implemented in `A1Tests` using `MSTests`. We use a combination of both `Assert` tests and `Snapshot` tests depending on what we are targetting.
 
-* Test Part A Requirements (Kara)
-  * Test each method
-* Test Part B Requirements (Undecided)
-  * Test how we handle leaf nodes
-  * Test CoRequisites
-  * Test PreRequisites
-  * At least like 10 smaller checks targeting each edge case directly
-  * A few massive snapshot tests to make sure everything is working together
+The goal of `Assert` tests are to test individual behavior on an api element. For instance we want to manually check that the number of vertices in a graph did in fact increase by 1 when we add a vertex. 
+
+The goal of `Snapshot` tests is to capture larger output that doesn't really make sense to check by hand, the downside to snapshot tests is you have to understand what the snapshots mean and just because the test pass's doesn't mean the snapshot is valid hence when generating snapshots it's important to keep a close eye on what the actual values are.
+
+We run our test suite on every commit to our github repo through github actions in order to make sure that we are pushing good code to main.
 
 Copyright ©️ 2026 Jake Follest, Kara Wilson
