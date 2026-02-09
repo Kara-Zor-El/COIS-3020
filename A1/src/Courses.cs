@@ -39,13 +39,13 @@ namespace CourseGraph {
     /// <summary>
     /// The term the course is offered in.
     /// </summary>
-    public Term OfferedTerm { get; init; }
+    public required Term OfferedTerm { get; init; }
     /// <summary>
     /// The time slots the course is offered in. 
     /// Each tuple represents a single time slot with the:
     /// day of the week, start time, and end time.
     /// </summary>
-    public TimeSlot[] TimeSlots { get; init; }
+    public required TimeSlot[] TimeSlots { get; init; }
 
     /// <summary>Determines if two TimeTable's overlap.</summary>
     public static bool DoesOverlap(TimeTableInfo tableA, TimeTableInfo tableB) {

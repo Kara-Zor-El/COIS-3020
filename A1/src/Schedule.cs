@@ -69,7 +69,9 @@ namespace Schedule {
         newTermData[i] = (course, course.TimeTableInfos.Where(t => t.OfferedTerm == termType).ToArray());
       }
       // Narrow timeSlots to valid combinations
-      var (_, narrowedTermData) = this.GetValidTimeTables(newTermData);
+      var (permutations, narrowedTermData) = this.GetValidTimeTables(newTermData);
+      if (permutations.Count <= 0)
+        throw new Exception("Impossible: No valid timeSlot after validation");
       this.TermData[term] = narrowedTermData;
       this.ScheduledCourses.Add(course.Name, term);
     }
@@ -138,7 +140,7 @@ namespace Schedule {
     /// Constraints:
     /// * IsTermFull
     /// * DoesCourseRunInTerm
-    /// * TODO: IsValidTimeTable
+    /// * IsValidTimeTable
     /// </summary>
     /// <param name="course"></param>
     /// <param name="term"></param>
@@ -157,7 +159,7 @@ namespace Schedule {
       // Check There is a valid TimeTable Permutation
       // NOTE: This is guaranteed to place because of our check in `CanPlaceCourse`
       // TODO: Validate this line
-      var termData = this.TermData.Count <= term ? [] : this.TermData[term];
+      var termData = this.TermData.Count <= term ? new (Course course, TimeTableInfo[] timeTableInfo)?[this.MaxTermSize] : this.TermData[term];
       (Course course, TimeTableInfo[] timeTableInfo)?[] newTermData = [.. termData];
       for (int i = 0; i < newTermData.Length; i++) {
         if (newTermData[i] != null) continue;
@@ -208,12 +210,13 @@ namespace Schedule {
       var termTables = new Table?[this.TermData.Count];
       for (int termIndex = 0; termIndex < this.TermData.Count; termIndex++) {
         var termData = this.TermData[termIndex];
+        var termNotEmpty = termData.Any(i => i != null);
         // Get TimeTable Information
         var (timeTableInfo, _) = this.GetValidTimeTables(termData);
         // Because we use `getValidTimeTables` to check if we can place in term,
         // we should never have a case where the result is empty if we have things
         // scheduled in the term.
-        if (timeTableInfo.Count <= 0 && termData.Any(i => i != null)) {
+        if (timeTableInfo.Count <= 0 && termNotEmpty) {
           throw new Exception("Impossible: There are no valid timetables for a term");
         }
         // Build Term Table Header
@@ -231,16 +234,18 @@ namespace Schedule {
         ) {
           var row = new Markup?[header.Length];
           row[0] = new Markup(time.ToString("HH:mm")); // Set the first row the time
-          var timeTable = timeTableInfo[0];
-          for (int i = 0; i < timeTable.Length; i++) {
-            // NOTE: We always choose the first permutation because it doesn't matter 
-            //       This could be changed to get a more desirable course layout.
-            var (course, sessions) = timeTable[i];
-            foreach (var courseSection in sessions.TimeSlots) {
-              // NOTE: Because we can't partially cover cell we use > for the end
-              if (courseSection.Start <= time && courseSection.End > time) {
-                // NOTE: This is 1+ as we have the time take the first row
-                row[1 + (int)courseSection.Day] = UsedCell(course.Name, i);
+          if (!termNotEmpty) {
+            var timeTable = timeTableInfo[0];
+            for (int courseEntry = 0; courseEntry < timeTable.Length; courseEntry++) {
+              // NOTE: We always choose the first permutation because it doesn't matter 
+              //       This could be changed to get a more desirable course layout.
+              var (course, sessions) = timeTable[courseEntry];
+              foreach (var courseSection in sessions.TimeSlots) {
+                // NOTE: Because we can't partially cover cell we use > for the end
+                if (courseSection.Start <= time && courseSection.End > time) {
+                  // NOTE: This is 1+ as we have the time take the first row
+                  row[1 + (int)courseSection.Day] = UsedCell(course.Name, courseEntry);
+                }
               }
             }
           }

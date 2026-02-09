@@ -108,6 +108,8 @@ namespace Program {
     static int Main(string[] args) {
       // Use SpectreConsole.CLI for our command line options
       var app = new CommandApp<ProgramCommand>();
+      // Enable Backtraces on exceptions
+      app.Configure(config => config.PropagateExceptions());
       return app.Run(args);
     }
   }
